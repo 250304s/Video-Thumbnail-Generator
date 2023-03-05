@@ -1,9 +1,11 @@
-import glob
 import ffmpeg
 import subprocess
 import os
 from PIL import Image, ImageDraw, ImageFont
 import sys
+from concurrent.futures import ThreadPoolExecutor
+import keyboard
+import time
 
 
 width = 960
@@ -12,16 +14,21 @@ height = 540
 xgrid = 3
 ygrid = 5
 gridsize = xgrid * ygrid
+running = True
 
-
+# --------------------------------------------
 def secToHour(second: float) -> str:
+    """秒数で渡されたものをHH:MM:SSの形に直す
+    """
     H = int(second / 3600)
     M = int((second % 3600) / 60)
     S = int(second % 60)
     return "{:02}:{:02}:{:02}".format(H, M, S)
 
 
-def human_readable_size(size):
+def human_readable_size(size) -> str:
+    """ファイルサイズを見やすい形に加工する
+    """
     for unit in ['B', 'KB', 'MB', 'GB']:
         if size < 1024.0:
             return f"{size:.2f} {unit}"
@@ -29,7 +36,41 @@ def human_readable_size(size):
     return f"{size:.2f} TB"
 
 
-def write_video_info(videofile) -> str:
+def guruguru() -> None:
+    """現在のインデックスに応じて表示を行う
+    """
+    number = 0
+    while running:
+        number += 1
+        time.sleep(0.25)
+        if number % 4 == 0:
+            print('\r{}'.format("|"), end='')
+        elif number % 4 == 1:
+            print('\r{}'.format("/"), end='')
+        elif number % 4 == 2:
+            print('\r{}'.format("-"), end='')
+        else:
+            print('\r{}'.format("\\"), end='')
+            """if number > 60:
+                break"""
+    print('\r', end='')        
+
+
+def keyinput():
+    """
+    qキーが入力されたとき、プログラムを終了する。
+    """
+    global running
+    while running:
+        time.sleep(0.05)
+        if keyboard.is_pressed('q'):
+            print('\r{}'.format("処理を中断しました。"), end='')
+            os._exit(0)
+# --------------------------------------------
+
+def get_video_info(videofile) -> str:
+    """ffprobeを用いて動画の情報を得る。その後加工して文字列として渡す。
+    """
     probe = ffmpeg.probe(videofile)
     videoname = os.path.basename(videofile)
     vstreams = probe['streams'][0]
@@ -58,16 +99,18 @@ def write_video_info(videofile) -> str:
     return resulttext
 
 
-def drawTime(image, second: float):
+def drawTime(image, second: float) -> Image:
+    """渡された画像ファイルとその時刻を書き込む。
+    """
     global width, height
-    fontsize = int(width / 16)
-    postextX = width / 2
-    postextY = height - fontsize
+    fontsize = int(width / 16)  # 文字のサイズ
+    postextX = width / 2       # 文字を書き込む位置 x座標 （真ん中）
+    postextY = height - fontsize  # 文字を書き込む位置 y座標 （一番下）
     font = ImageFont.truetype(f'C:\Windows\Fonts\HGRSMP.TTF', fontsize)
     font_color = (255, 255, 255, 150)
     edge_color = (0, 0, 0, 200)
 
-    temp_img = image.convert('RGBA')
+    temp_img = image.convert('RGBA')    # アルファ値を追加
     img_size = temp_img.size
 
     a = Image.new('RGBA', img_size)
@@ -86,12 +129,15 @@ def drawTime(image, second: float):
     return out_img
 
 
-def grid_picture(images, filepath, videoinfo: str):
+def grid_picture(images, filepath, videoinfo: str) -> None:
+    """リストで渡された画像をグリッド上に配置する。
+    また、動画情報を書き込むために上部に空白を開けて書き込む。
+    """
     global width, height, xgrid, ygrid
-    margin = 0
-    widthmargin = 10
-    information_margin = 200
-    fontsize = int(width/24)
+    margin = 0  # 画像間の隙間を表す変数。
+    widthmargin = 10  # 端の画像の隙間を表す変数。
+    information_margin = 200  # 情報を書き込む空白を決める変数。
+    fontsize = int(width/24)  # 情報を書き込む文字のサイズ横幅によって決まる。
 
     # 一つの画像に合成する
     result_image = Image.new('RGB', ((width + margin) * xgrid - margin + widthmargin * 2,
@@ -117,47 +163,57 @@ def grid_picture(images, filepath, videoinfo: str):
     # 保存する
     result_image.save(filepath + ".jpg")
     
-def guruguru(number: int):
-    if number % 4 == 0:
-        print('{}{}'.format("|" ,"\u001B[1A"))
-    elif number % 4 == 1:
-        print('{}{}'.format("/" ,"\u001B[1A"))
-    elif number % 4 == 2:
-        print('{}{}'.format("ー" ,"\u001B[1A"))
-    else:
-        print('{}{}'.format("\\" ,"\u001B[1A"))
+    
+def get_image_list(durationlist, filepath):
+    """"並列で処理を行う
+    """
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        executor.submit(keyinput)
+        future = executor.submit(cut_video, durationlist, filepath)
+        executor.submit(guruguru)
+    images = future.result()
+    return images
 
-
-def cut_video(durationlist, video):
-    global width
-    global height
+def cut_video(durationlist, videopath) -> list:
+    """ffmpegでリストの中に格納された時間のフレームを抜き取り画像へ変換する。
+        また抜き取った時間を画像に書き込む。
+        その後、変換した画像をリストに格納する。
+    """
+    global width, height, running
+    running = True
     size = str(width) + "*" + str(height)
-    images = []
-    videoindo = write_video_info(video)
+    images = []  # ffmpegで生成した画像を格納するリスト
     for i, now in enumerate(durationlist):
-        filename = os.path.basename(video)
-
+        filename = os.path.basename(videopath)
         filename_without, etc = os.path.splitext(filename)
-        save = str(i) + '.jpg'
-        guruguru(i)
-        subprocess.call(['ffmpeg', '-hwaccel', 'cuda', '-loglevel', 'quiet', '-ss', str(now), '-i', video, '-vframes',
+        save = filename_without + '_TG_' + str(i) + '.jpg'  # 一時的に保存するための変数。
+        subprocess.call(['ffmpeg', '-hwaccel', 'cuda', '-loglevel', 'quiet', '-ss', str(now), '-y', '-i', videopath, '-vframes',
                         '1', '-q:v', '1', '-s', size, '-f', 'image2', save])
-        image = Image.open(save).resize((width, height))
+        image = Image.open(save)
         out_img = drawTime(image, float(now))
         images.append(out_img)
-        os.remove(save)
-    grid_picture(images, filename_without, videoindo)
+        os.remove(save)  # 追加した後はいらないので削除する。
+    print('\r', end='')
+    running = False
+    return images
+
 
 def create_thumbnail(filepath):
+    """このメソッドにサムネイルを作りたい動画のパスを渡すと生成される。
+    """
     global gridsize
     try:
+        filename = os.path.basename(filepath)
+        filename_without, etc = os.path.splitext(filename)
         probe = ffmpeg.probe(filepath)
         duration = float(probe['format']['duration'])
         frame = (duration / gridsize)-1
+        videoinfo = get_video_info(filepath)
         durationlist = [frame * (i+1) for i in range(gridsize)]
-        cut_video(durationlist, filepath)
+        images = get_image_list(durationlist, filepath)
+        grid_picture(images, filename_without, videoinfo)
     except:
-        print('this is not video file!')
+        print(f'{filepath} is not video file!')
 
 
 if __name__ == '__main__':
@@ -168,4 +224,4 @@ if __name__ == '__main__':
             create_thumbnail(i)
     else:
         print('使い方:このファイルに動画をドラッグアンドドロップするか、コマンドラインで直接動画のパスを渡してください。')
-        input('終了するには何かキーを押してください...')
+        os.system('PAUSE')

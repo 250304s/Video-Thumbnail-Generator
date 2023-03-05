@@ -9,6 +9,7 @@ import keyboard
 import time
 import configparser
 import errno
+import json
 
 could_readed = True
 # 実行ファイルが存在するディレクトリのパスを取得する
@@ -101,28 +102,18 @@ def get_video_info(videofile) -> str:
     """
     probe = ffmpeg.probe(videofile)
     videoname = os.path.basename(videofile)
-    vstreams = probe['streams'][0]
-    astreams = probe['streams'][1]
-    # --- 動画情報 ---
-    try:
-        videowidth, videoheight, videofps, videobitrate, duration, videocodec = exception_info_video(vstreams)
-    except:
-        try:
-            videowidth, videoheight, videofps, videobitrate, duration, videocodec = exception_info_video(astreams)
-        except Exception as e:
-            print(e)
+    video_info, audio_info = get_streams(videofile)
+    videofps = video_info['r_frame_rate']
+    videowidth = video_info['width']
+    videoheight = video_info['height']
+    videocodec = video_info['codec_name']
+    audiocodec = audio_info['codec_name']
+    samplerate = audio_info['sample_rate']
+    channellayout = audio_info['channel_layout']
+    duration = float(probe['format']['duration'])
+    videobitrate = int(probe['format']['bit_rate'])
     videosize = int(probe['format']['size'])
     fps = float(videofps.split('/')[0]) / float(videofps.split('/')[1])
-    # --------------
-    # --- 音声情報 ---
-    try:
-        audiocodec, samplerate, channellayout = exception_info_audio(vstreams)
-    except:
-        try:
-            audiocodec, samplerate, channellayout = exception_info_audio(astreams)
-        except Exception as e:
-            print(e)
-    # --------------
     resulttext = 'File: {}\nSize: {} bytes ({}), duration: {}, avg.bitrate: {}/s\nAudio: {}, {} Hz, {}\nVideo: {}, {}x{}, {:.2f}fps'.format(
         videoname,
         videosize, human_readable_size(videosize), secToHour(
@@ -131,20 +122,34 @@ def get_video_info(videofile) -> str:
         videocodec, videowidth, videoheight, fps)
     return resulttext
 
-def exception_info_video(streams):
-    videowidth = streams['width']
-    videoheight = streams['height']
-    videofps = streams['r_frame_rate']
-    videobitrate = int(streams['bit_rate'])
-    duration = float(streams['duration'])
-    videocodec = streams['codec_name']
-    return videowidth, videoheight, videofps, videobitrate, duration, videocodec
-def exception_info_audio(streams):
-    audiocodec = streams['codec_name']
-    samplerate = streams['sample_rate']
-    channellayout = streams['channel_layout']
-    return audiocodec, samplerate, channellayout
-
+def get_streams(filename) -> dict:
+    cmd = ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', filename]
+    output = subprocess.check_output(cmd)
+    data = json.loads(output)
+    
+    video_stream = None
+    audio_stream = None
+    
+    for stream in data['streams']:
+        if stream['codec_type'] == 'video':
+            video_stream = stream
+        elif stream['codec_type'] == 'audio':
+            audio_stream = stream
+    
+    video_info = {
+        'codec_name': video_stream.get('codec_name', ''),
+        'width': video_stream.get('width', 0),
+        'height': video_stream.get('height', 0),
+        'r_frame_rate': video_stream.get('r_frame_rate', ''),
+    } if video_stream is not None else {}
+    
+    audio_info = {
+        'codec_name': audio_stream.get('codec_name', ''),
+        'sample_rate': audio_stream.get('sample_rate', ''),
+        'channel_layout': audio_stream.get('channel_layout', '')
+    } if audio_stream is not None else {}
+    
+    return video_info, audio_info
 
 def drawTime(image, second: float) -> Image:
     """渡された画像ファイルとその時刻を書き込む。

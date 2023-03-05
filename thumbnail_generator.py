@@ -1,3 +1,4 @@
+#!python3.10
 import ffmpeg
 import subprocess
 import os
@@ -6,15 +7,42 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 import keyboard
 import time
+import configparser
+import errno
 
+could_readed = True
+# 実行ファイルが存在するディレクトリのパスを取得する
+if getattr(sys, 'frozen', False):
+    application_path = os.path.dirname(sys.executable)
+else:
+    application_path = os.path.dirname(os.path.abspath(__file__))
 
-width = 960
-height = 540
+# iniファイルのパスを設定する
+config_ini_path = os.path.join(application_path, "config.ini")
 
-xgrid = 3
-ygrid = 5
+# iniファイルを読み込む
+ini = configparser.ConfigParser()
+if not os.path.exists(config_ini_path):
+    could_readed = False
+ini.read(config_ini_path, 'UTF-8')
+
+width = int(ini['DEFAULT']['width']) if could_readed else 960
+height = int(ini['DEFAULT']['height']) if could_readed else 540
+xgrid = int(ini['DEFAULT']['xgrid']) if could_readed else 3
+ygrid = int(ini['DEFAULT']['ygrid']) if could_readed else 5
 gridsize = xgrid * ygrid
 running = True
+
+try:
+    savepath = ini['USER']['savepath'] if ini['USER']['savepath'] != '' or could_readed else ''
+except:
+    savepath = ''
+
+if savepath == '':
+    save_thumbnail_path = os.path.join(application_path, 'save')
+else:
+    save_thumbnail_path = savepath
+os.makedirs(save_thumbnail_path, exist_ok=True)
 
 # --------------------------------------------
 def secToHour(second: float) -> str:
@@ -76,19 +104,24 @@ def get_video_info(videofile) -> str:
     vstreams = probe['streams'][0]
     astreams = probe['streams'][1]
     # --- 動画情報 ---
+    try:
+        videowidth, videoheight, videofps, videobitrate, duration, videocodec = exception_info_video(vstreams)
+    except:
+        try:
+            videowidth, videoheight, videofps, videobitrate, duration, videocodec = exception_info_video(astreams)
+        except Exception as e:
+            print(e)
     videosize = int(probe['format']['size'])
-    videowidth = vstreams['width']
-    videoheight = vstreams['height']
-    videofps = vstreams['r_frame_rate']
-    videobitrate = int(vstreams['bit_rate'])
-    duration = float(vstreams['duration'])
-    videocodec = vstreams['codec_name']
     fps = float(videofps.split('/')[0]) / float(videofps.split('/')[1])
     # --------------
     # --- 音声情報 ---
-    audiocodec = astreams['codec_name']
-    samplerate = astreams['sample_rate']
-    channellayout = astreams['channel_layout']
+    try:
+        audiocodec, samplerate, channellayout = exception_info_audio(vstreams)
+    except:
+        try:
+            audiocodec, samplerate, channellayout = exception_info_audio(astreams)
+        except Exception as e:
+            print(e)
     # --------------
     resulttext = 'File: {}\nSize: {} bytes ({}), duration: {}, avg.bitrate: {}/s\nAudio: {}, {} Hz, {}\nVideo: {}, {}x{}, {:.2f}fps'.format(
         videoname,
@@ -97,6 +130,20 @@ def get_video_info(videofile) -> str:
         audiocodec, samplerate, channellayout,
         videocodec, videowidth, videoheight, fps)
     return resulttext
+
+def exception_info_video(streams):
+    videowidth = streams['width']
+    videoheight = streams['height']
+    videofps = streams['r_frame_rate']
+    videobitrate = int(streams['bit_rate'])
+    duration = float(streams['duration'])
+    videocodec = streams['codec_name']
+    return videowidth, videoheight, videofps, videobitrate, duration, videocodec
+def exception_info_audio(streams):
+    audiocodec = streams['codec_name']
+    samplerate = streams['sample_rate']
+    channellayout = streams['channel_layout']
+    return audiocodec, samplerate, channellayout
 
 
 def drawTime(image, second: float) -> Image:
@@ -133,7 +180,7 @@ def grid_picture(images, filepath, videoinfo: str) -> None:
     """リストで渡された画像をグリッド上に配置する。
     また、動画情報を書き込むために上部に空白を開けて書き込む。
     """
-    global width, height, xgrid, ygrid
+    global width, height, xgrid, ygrid, save_thumbnail_path
     margin = 0  # 画像間の隙間を表す変数。
     widthmargin = 10  # 端の画像の隙間を表す変数。
     information_margin = 200  # 情報を書き込む空白を決める変数。
@@ -161,15 +208,16 @@ def grid_picture(images, filepath, videoinfo: str) -> None:
     )
 
     # 保存する
-    result_image.save(filepath + ".jpg")
+    savepath = os.path.join(save_thumbnail_path, filepath + ".jpg")
+    result_image.save(savepath)
     
     
-def get_image_list(durationlist, filepath):
+def get_image_list(durationlist, videopath):
     """"並列で処理を行う
     """
     with ThreadPoolExecutor(max_workers=3) as executor:
         executor.submit(keyinput)
-        future = executor.submit(cut_video, durationlist, filepath)
+        future = executor.submit(cut_video, durationlist, videopath)
         executor.submit(guruguru)
     images = future.result()
     return images
@@ -179,7 +227,7 @@ def cut_video(durationlist, videopath) -> list:
         また抜き取った時間を画像に書き込む。
         その後、変換した画像をリストに格納する。
     """
-    global width, height, running
+    global width, height, running, save_thumbnail_path
     running = True
     size = str(width) + "*" + str(height)
     images = []  # ffmpegで生成した画像を格納するリスト
@@ -187,6 +235,7 @@ def cut_video(durationlist, videopath) -> list:
         filename = os.path.basename(videopath)
         filename_without, etc = os.path.splitext(filename)
         save = filename_without + '_TG_' + str(i) + '.jpg'  # 一時的に保存するための変数。
+        save = os.path.join(save_thumbnail_path, save)
         subprocess.call(['ffmpeg', '-hwaccel', 'cuda', '-loglevel', 'quiet', '-ss', str(now), '-y', '-i', videopath, '-vframes',
                         '1', '-q:v', '1', '-s', size, '-f', 'image2', save])
         image = Image.open(save)
@@ -198,22 +247,23 @@ def cut_video(durationlist, videopath) -> list:
     return images
 
 
-def create_thumbnail(filepath):
+def create_thumbnail(videopath):
     """このメソッドにサムネイルを作りたい動画のパスを渡すと生成される。
     """
     global gridsize
     try:
-        filename = os.path.basename(filepath)
+        filename = os.path.basename(videopath)
         filename_without, etc = os.path.splitext(filename)
-        probe = ffmpeg.probe(filepath)
+        probe = ffmpeg.probe(videopath)
         duration = float(probe['format']['duration'])
         frame = (duration / gridsize)-1
-        videoinfo = get_video_info(filepath)
+        videoinfo = get_video_info(videopath)
         durationlist = [frame * (i+1) for i in range(gridsize)]
-        images = get_image_list(durationlist, filepath)
+        images = get_image_list(durationlist, videopath)
         grid_picture(images, filename_without, videoinfo)
-    except:
-        print(f'{filepath} is not video file!')
+    except Exception as e:
+        print(e)
+        print(f'{videopath} is not video file!')
 
 
 if __name__ == '__main__':

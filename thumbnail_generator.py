@@ -1,6 +1,6 @@
 """
 TODO: 
-- ffmpegモジュールの使用をやめて、ffmpegの位置をユーザーが設定できるようにする。
+- ffmpegモジュールの使用をやめて、ffmpegの位置をユーザーが設定できるようにする。23/03/07
 - 
 - 
 """
@@ -18,7 +18,14 @@ import time
 
 
 class ProgressBar:
+    """プログレスバーを表示するクラス。インスタンス化を行う際、処理総数を入れる必要がある。
+    """
     def __init__(self, processes: int) -> None:
+        """処理総数を引数に取る。
+
+        Args:
+            processes (int): for文が回る回数を入れる。
+        """
         self.processes = processes  # 処理総数
         self.current_progress = 0  # 現在完了した数
         self.start_time = time.time()
@@ -26,28 +33,44 @@ class ProgressBar:
         self.time_sum = 0
 
     def progressbar(self) -> None:
+        """プログレスバーの表示を行う。
+        """
         remaining_processes = self.processes - self.current_progress
-        left_time = max(0, self.get_time() * remaining_processes)
         now_progress = int((self.current_progress / self.processes) * 30)
         progress = "#"*(now_progress) + " "*(30 - now_progress)
         print('\r[{}] {:02}/{} 残り時間: {:04.1f}s'.format(progress, self.current_progress,
               self.processes, self.get_time()*remaining_processes), end='')
 
     def update(self) -> None:
+        """プログレスバーを一つ進める。
+        """
         self.current_progress += 1
+        # ここの処理でもしfor文の外でupdateが呼び出された場合クラスを削除する。
         if self.current_progress > self.processes:
             self.__del__(True)
             return
         self.progressbar()
 
-    def get_time(self):
+    def get_time(self) -> float:
+        """for文一回当たりの時間を計測し、平均時間を取る。
+
+        Returns:
+            float: 処理に掛かる平均時間。
+        """
         current_time = time.time() - self.process_time
         self.process_time = time.time()
         self.time_sum += current_time
         ave = self.time_sum / self.current_progress
         return ave
 
-    def __del__(self, no_message=False):
+    def __del__(self, no_message: bool=False) -> None:
+        """クラス削除
+
+        Args:
+            no_message (bool, optional): 終了時メッセージを表示するかの選択をする.
+            
+            Defaults to False.
+        """
         if no_message:
             return
         else:

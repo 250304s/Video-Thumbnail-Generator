@@ -1,9 +1,3 @@
-"""
-TODO: 
-- ffmpegモジュールの使用をやめて、ffmpegの位置をユーザーが設定できるようにする。23/03/07
-- 
-- 
-"""
 import subprocess
 import os
 from PIL import Image, ImageDraw, ImageFont

@@ -116,7 +116,8 @@ def read_ini(application_path: str) -> bool:
     # ファイルが存在するか確認しエラーハンドリングを行います。
     if not os.path.exists(config_ini_path):
         print('Do not exist config.ini!')
-        return False
+        create_ini(config_ini_path)
+        #return False
     # ini ファイルを読み込んで、必要な設定値を取得します。
     ini = configparser.ConfigParser()
     ini.read(config_ini_path, 'UTF-8')
@@ -132,6 +133,14 @@ def read_ini(application_path: str) -> bool:
         print(e)
         return False
     return True
+
+def create_ini(config_ini_path: str):
+    config = configparser.ConfigParser()
+    default_setting = {'width':'960', 'height':'540', 'xgrid':'4', 'ygrid':'4'}
+    config['DEFAULT'] = default_setting
+    with open(config_ini_path, 'w') as configfile:
+        # 指定したconfigファイルを書き込み
+        config.write(configfile)
 # --------------------------------------------
 
 

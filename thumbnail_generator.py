@@ -8,42 +8,57 @@ from concurrent.futures import ThreadPoolExecutor
 import keyboard
 import time
 import configparser
-import errno
+import traceback
 import json
 
-could_readed = True
-# 実行ファイルが存在するディレクトリのパスを取得する
-if getattr(sys, 'frozen', False):
-    application_path = os.path.dirname(sys.executable)
-else:
-    application_path = os.path.dirname(os.path.abspath(__file__))
-
-# iniファイルのパスを設定する
-config_ini_path = os.path.join(application_path, "config.ini")
-
-# iniファイルを読み込む
-ini = configparser.ConfigParser()
-if not os.path.exists(config_ini_path):
-    could_readed = False
-ini.read(config_ini_path, 'UTF-8')
-
-width = int(ini['DEFAULT']['width']) if could_readed else 960
-height = int(ini['DEFAULT']['height']) if could_readed else 540
-xgrid = int(ini['DEFAULT']['xgrid']) if could_readed else 3
-ygrid = int(ini['DEFAULT']['ygrid']) if could_readed else 5
+# ━━━━━グローバル変数━━━━━
+width = 960
+height = 540
+xgrid = 4
+ygrid = 4
+save_thumbnail_path = ".\\"
 gridsize = xgrid * ygrid
 running = True
+# ━━━━━━━━━━━━━━━━━
 
-try:
-    savepath = ini['USER']['savepath'] if ini['USER']['savepath'] != '' or could_readed else ''
-except:
-    savepath = ''
-
-if savepath == '':
+def initialize() -> None:
+    """初期設定を行う。
+    """
+    global save_thumbnail_path
+    # 実行ファイルが存在するディレクトリのパスを取得する
+    if getattr(sys, 'frozen', False):
+        application_path = os.path.dirname(sys.executable)
+    else:
+        application_path = os.path.dirname(os.path.abspath(__file__))
+    if read_ini(application_path):
+        print('Successfully loaded config.ini.')
+    else:
+        print('Failed to load config.ini.')
+    print(f'一枚の横幅: {width}px, 一枚の高さ: {height}px, 横の枚数: {xgrid}枚, 縦の枚数: {ygrid}枚')
     save_thumbnail_path = os.path.join(application_path, 'save')
-else:
-    save_thumbnail_path = savepath
-os.makedirs(save_thumbnail_path, exist_ok=True)
+    os.makedirs(save_thumbnail_path, exist_ok=True)
+
+
+def read_ini(application_path) -> bool:
+    global width, height, xgrid, ygrid
+    # iniファイルのパスを設定する
+    config_ini_path = os.path.join(application_path, "config.ini")
+    if not os.path.exists(config_ini_path):
+        print('Do not exist config.ini!')
+        return False
+    # iniファイルを読み込む
+    ini = configparser.ConfigParser()
+    ini.read(config_ini_path, 'UTF-8')
+    try:
+        width = int(ini['DEFAULT']['width'])
+        height = int(ini['DEFAULT']['height'])
+        xgrid = int(ini['DEFAULT']['xgrid'])
+        ygrid = int(ini['DEFAULT']['ygrid'])
+    except KeyError:
+        e = traceback.format_exc()
+        print(e)
+        return False
+    return True
 
 # --------------------------------------------
 def secToHour(second: float) -> str:
@@ -85,7 +100,7 @@ def guruguru() -> None:
     print('\r', end='')        
 
 
-def keyinput():
+def keyinput() -> None:
     """
     qキーが入力されたとき、プログラムを終了する。
     """
@@ -103,13 +118,16 @@ def get_video_info(videofile) -> str:
     probe = ffmpeg.probe(videofile)
     videoname = os.path.basename(videofile)
     video_info, audio_info = get_streams(videofile)
-    videofps = video_info['r_frame_rate']
-    videowidth = video_info['width']
-    videoheight = video_info['height']
-    videocodec = video_info['codec_name']
-    audiocodec = audio_info['codec_name']
-    samplerate = audio_info['sample_rate']
-    channellayout = audio_info['channel_layout']
+    try:
+        videofps = video_info['r_frame_rate']
+        videowidth = video_info['width']
+        videoheight = video_info['height']
+        videocodec = video_info['codec_name']
+        audiocodec = audio_info['codec_name']
+        samplerate = audio_info['sample_rate']
+        channellayout = audio_info['channel_layout']
+    except KeyError:
+        print(traceback.format_exc())
     duration = float(probe['format']['duration'])
     videobitrate = int(probe['format']['bit_rate'])
     videosize = int(probe['format']['size'])
@@ -181,7 +199,7 @@ def drawTime(image, second: float) -> Image:
     return out_img
 
 
-def grid_picture(images, filepath, videoinfo: str) -> None:
+def grid_picture(images, videoname, videoinfo: str) -> None:
     """リストで渡された画像をグリッド上に配置する。
     また、動画情報を書き込むために上部に空白を開けて書き込む。
     """
@@ -213,11 +231,12 @@ def grid_picture(images, filepath, videoinfo: str) -> None:
     )
 
     # 保存する
-    savepath = os.path.join(save_thumbnail_path, filepath + ".jpg")
+    print(f'Successfully created {videoname}.jpg in the "{save_thumbnail_path}\\"!')
+    savepath = os.path.join(save_thumbnail_path, videoname + ".jpg")
     result_image.save(savepath)
     
     
-def get_image_list(durationlist, videopath):
+def get_image_list(durationlist, videopath) -> list:
     """"並列で処理を行う
     """
     with ThreadPoolExecutor(max_workers=3) as executor:
@@ -252,7 +271,7 @@ def cut_video(durationlist, videopath) -> list:
     return images
 
 
-def create_thumbnail(videopath):
+def create_thumbnail(videopath) -> None:
     """このメソッドにサムネイルを作りたい動画のパスを渡すと生成される。
     """
     global gridsize
@@ -266,12 +285,13 @@ def create_thumbnail(videopath):
         durationlist = [frame * (i+1) for i in range(gridsize)]
         images = get_image_list(durationlist, videopath)
         grid_picture(images, filename_without, videoinfo)
-    except Exception as e:
-        print(e)
+    except Exception:
+        print(traceback.format_exc())
         print(f'{videopath} is not video file!')
 
 
 if __name__ == '__main__':
+    initialize()
     if len(sys.argv) > 1:
         for i in sys.argv:
             if i == sys.argv[0]:

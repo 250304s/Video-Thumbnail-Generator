@@ -1,5 +1,9 @@
-#!python3.10
-import ffmpeg
+"""
+TODO: 
+- ffmpegモジュールの使用をやめて、ffmpegの位置をユーザーが設定できるようにする。
+- 
+- 
+"""
 import subprocess
 import os
 from PIL import Image, ImageDraw, ImageFont
@@ -10,6 +14,46 @@ import time
 import configparser
 import traceback
 import json
+import time
+
+
+class ProgressBar:
+    def __init__(self, processes: int) -> None:
+        self.processes = processes  # 処理総数
+        self.current_progress = 0  # 現在完了した数
+        self.start_time = time.time()
+        self.process_time = self.start_time
+        self.time_sum = 0
+
+    def progressbar(self) -> None:
+        remaining_processes = self.processes - self.current_progress
+        left_time = max(0, self.get_time() * remaining_processes)
+        now_progress = int((self.current_progress / self.processes) * 30)
+        progress = "#"*(now_progress) + " "*(30 - now_progress)
+        print('\r[{}] {:02}/{} 残り時間: {:04.1f}s'.format(progress, self.current_progress,
+              self.processes, self.get_time()*remaining_processes), end='')
+
+    def update(self) -> None:
+        self.current_progress += 1
+        if self.current_progress > self.processes:
+            self.__del__(True)
+            return
+        self.progressbar()
+
+    def get_time(self):
+        current_time = time.time() - self.process_time
+        self.process_time = time.time()
+        self.time_sum += current_time
+        ave = self.time_sum / self.current_progress
+        return ave
+
+    def __del__(self, no_message=False):
+        if no_message:
+            return
+        else:
+            print('\r')
+            print("かかった時間: {:03.1f}s".format(time.time()-self.start_time))
+
 
 # ━━━━━グローバル変数━━━━━
 width = 960
@@ -48,8 +92,8 @@ def initialize() -> None:
     os.makedirs(save_thumbnail_path, exist_ok=True)
 
 
-def read_ini(application_path) -> bool:
-    global width, height, xgrid, ygrid
+def read_ini(application_path: str) -> bool:
+    global width, height, xgrid, ygrid, gridsize
     # config.ini のパスを取得する
     config_ini_path = os.path.join(application_path, "config.ini")
     # ファイルが存在するか確認しエラーハンドリングを行います。
@@ -64,13 +108,13 @@ def read_ini(application_path) -> bool:
         height = int(ini['DEFAULT']['height'])
         xgrid = int(ini['DEFAULT']['xgrid'])
         ygrid = int(ini['DEFAULT']['ygrid'])
+        gridsize = xgrid * ygrid
     except KeyError:
         # キーが見つからない場合（値の取得に失敗した場合）はエラーとして処理します。
         e = traceback.format_exc()
         print(e)
         return False
     return True
-
 # --------------------------------------------
 
 
@@ -105,26 +149,6 @@ def human_readable_size(size: int) -> str:
     return f"{size:.2f} TB"
 
 
-def guruguru() -> None:
-    """現在のインデックスに応じて表示を行う
-    """
-    number = 0
-    while running:
-        number += 1
-        time.sleep(0.25)
-        if number % 4 == 0:
-            print('\r{}'.format("|"), end='')
-        elif number % 4 == 1:
-            print('\r{}'.format("/"), end='')
-        elif number % 4 == 2:
-            print('\r{}'.format("-"), end='')
-        else:
-            print('\r{}'.format("\\"), end='')
-            """if number > 60:
-                break"""
-    print('\r', end='')
-
-
 def keyinput() -> None:
     """
     qキーが入力されたとき、プログラムを終了する。
@@ -138,45 +162,42 @@ def keyinput() -> None:
 # --------------------------------------------
 
 
-def get_video_info(videofile: str) -> str:
+def get_video_info(video_path: str) -> str:
     """ffprobeを用いて動画の情報を得る。その後加工して文字列として渡す。
     """
-    # ffprobeを用いて、動画ファイルについての詳細情報を取得する
-    probe = ffmpeg.probe(videofile)
     # 動画ファイルのファイル名を取得する
-    videoname = os.path.basename(videofile)
+    video_name = os.path.basename(video_path)
     # ビデオストリームとオーディオストリームに関する情報を取得する
-    video_info, audio_info = get_streams(videofile)
+    video_info, audio_info = get_streams(video_path)
     try:
         # キーエラーが発生した場合を想定して、各種情報を取得する
-        videofps = video_info['r_frame_rate']
-        videowidth = video_info['width']
-        videoheight = video_info['height']
-        videocodec = video_info['codec_name']
-        audiocodec = audio_info['codec_name']
-        samplerate = audio_info['sample_rate']
-        channellayout = audio_info['channel_layout']
+        video_fps = video_info['r_frame_rate']
+        video_width = video_info['width']
+        video_height = video_info['height']
+        video_codec = video_info['codec_name']
+        audio_codec = audio_info['codec_name']
+        sample_rate = audio_info['sample_rate']
+        channel_layout = audio_info['channel_layout']
     except KeyError:
         # キーエラーが発生した場合は、エラー内容を表示する
         print(traceback.format_exc())
     # ファイルサイズ、再生時間、ビデオコーデック、音声コーデック、チャンネル数、サンプリング周波数、解像度、フレームレート等の情報を、フォーマットされた文字列として保存する
-    duration = float(probe['format']['duration'])
-    videobitrate = int(probe['format']['bit_rate'])
-    videosize = int(probe['format']['size'])
+    video_format = get_format(video_path)
+    duration = float(video_format['duration'])
+    videobitrate = int(video_format['bit_rate'])
+    videosize = int(video_format['size'])
     try:
-        fps = float(videofps.split('/')[0]) / float(videofps.split('/')[1])
+        fps = float(video_fps.split('/')[0]) / float(video_fps.split('/')[1])
     except:
         fps = -1
-    resulttext = 'File: {}\nSize: {} bytes ({}), duration: {}, avg.bitrate: {}/s\nAudio: {}, {} Hz, {}\nVideo: {}, {}x{}, {:.2f}fps'.format(
-        videoname,
-        videosize, human_readable_size(videosize), secToHour(
-            duration), human_readable_size(videobitrate),
-        audiocodec, samplerate, channellayout,
-        videocodec, videowidth, videoheight, fps)
+    resulttext = f'File: {video_name}\
+    \nSize: {videosize} bytes ({human_readable_size(videosize)}), duration: {secToHour(duration)}, avg.bitrate: {human_readable_size(videobitrate)}/s\
+    \nAudio: {audio_codec}, {sample_rate} Hz, {channel_layout}\
+    \nVideo: {video_codec}, {video_width}x{video_height}, {fps:.2f}fps'
     return resulttext
 
 
-def get_streams(videofile: str) -> tuple(dict, dict):
+def get_streams(video_path: str) -> tuple[dict, dict]:
     """動画ファイルを与えるとffprobeで各ストリームと取り出す
 
     Args:
@@ -187,7 +208,7 @@ def get_streams(videofile: str) -> tuple(dict, dict):
     """
     # ffprobeコマンドの実行(引数：メッセージ少なく、JSON形式で出力、全ストリーム情報表示)
     cmd = ['ffprobe', '-v', 'quiet', '-print_format',
-           'json', '-show_streams', videofile]
+           'json', '-show_streams', video_path]
     output = subprocess.check_output(cmd)
     data = json.loads(output)
 
@@ -219,7 +240,23 @@ def get_streams(videofile: str) -> tuple(dict, dict):
     return video_info, audio_info
 
 
-def drawTime(image, second: float) -> Image:
+def get_format(video_path: str) -> dict:
+    """_summary_
+
+    Args:
+        video_path (str): _description_
+
+    Returns:
+        dict: _description_
+    """
+    cmd = ['ffprobe', '-v', 'quiet', '-print_format',
+           'json', '-show_format', video_path]
+    output = subprocess.check_output(cmd)
+    video_format = json.loads(output)['format']
+    return video_format
+
+
+def drawTime(image: Image.Image, second: float) -> Image:
     """渡された画像ファイルとその時刻を書き込む。
     """
     global width, height
@@ -249,7 +286,7 @@ def drawTime(image, second: float) -> Image:
     return out_img
 
 
-def grid_picture(images, videoname, videoinfo: str) -> None:
+def grid_picture(images: list[Image.Image], video_name: str, videoinfo: str) -> None:
     """リストで渡された画像をグリッド上に配置する。
     また、動画情報を書き込むために上部に空白を開けて書き込む。
     """
@@ -282,23 +319,22 @@ def grid_picture(images, videoname, videoinfo: str) -> None:
 
     # 保存する
     print(
-        f'Successfully created {videoname}.jpg in the "{save_thumbnail_path}\\"!')
-    savepath = os.path.join(save_thumbnail_path, videoname + ".jpg")
+        f'Successfully created {video_name}.jpg in the "{save_thumbnail_path}\\"')
+    savepath = os.path.join(save_thumbnail_path, video_name + ".jpg")
     result_image.save(savepath)
 
 
-def get_image_list(durationlist, videopath) -> list:
+def get_image_list(durationlist: list[float], video_path: str) -> list[Image.Image]:
     """"並列で処理を行う
     """
     with ThreadPoolExecutor(max_workers=3) as executor:
         executor.submit(keyinput)
-        future = executor.submit(cut_video, durationlist, videopath)
-        executor.submit(guruguru)
+        future = executor.submit(cut_video, durationlist, video_path)
     images = future.result()
     return images
 
 
-def cut_video(durationlist, videopath) -> list:
+def cut_video(durationlist: list[float], video_path: str) -> list[Image.Image]:
     """ffmpegでリストの中に格納された時間のフレームを抜き取り画像へ変換する。
         また抜き取った時間を画像に書き込む。
         その後、変換した画像をリストに格納する。
@@ -307,13 +343,15 @@ def cut_video(durationlist, videopath) -> list:
     running = True
     size = str(width) + "*" + str(height)
     images = []  # ffmpegで生成した画像を格納するリスト
+    progress_bar = ProgressBar(len(durationlist))
     for i, now in enumerate(durationlist):
-        filename = os.path.basename(videopath)
+        progress_bar.update()
+        filename = os.path.basename(video_path)
         filename_without, etc = os.path.splitext(filename)
         save = filename_without + '_TG_' + str(i) + '.jpg'  # 一時的に保存するための変数。
         save = os.path.join(save_thumbnail_path, save)
-        subprocess.call(['ffmpeg', '-hwaccel', 'cuda', '-loglevel', 'quiet', '-ss', str(now), '-y', '-i', videopath, '-vframes',
-                        '1', '-q:v', '1', '-s', size, '-f', 'image2', save])
+        subprocess.call(['ffmpeg', '-hwaccel', 'cuda', '-loglevel', 'quiet', '-ss', str(now),
+                        '-y', '-i', video_path, '-vframes', '1', '-q:v', '1', '-s', size, '-f', 'image2', save])
         image = Image.open(save)
         out_img = drawTime(image, float(now))
         images.append(out_img)
@@ -323,23 +361,23 @@ def cut_video(durationlist, videopath) -> list:
     return images
 
 
-def create_thumbnail(videopath) -> None:
+def create_thumbnail(video_path: str) -> None:
     """このメソッドにサムネイルを作りたい動画のパスを渡すと生成される。
     """
     global gridsize
     try:
-        filename = os.path.basename(videopath)
+        filename = os.path.basename(video_path)
         filename_without, etc = os.path.splitext(filename)
-        probe = ffmpeg.probe(videopath)
-        duration = float(probe['format']['duration'])
+        video_format = get_format(video_path)
+        duration = float(video_format['duration'])
         frame = (duration / gridsize)-1
-        videoinfo = get_video_info(videopath)
+        videoinfo = get_video_info(video_path)
         durationlist = [frame * (i+1) for i in range(gridsize)]
-        images = get_image_list(durationlist, videopath)
+        images = get_image_list(durationlist, video_path)
         grid_picture(images, filename_without, videoinfo)
     except Exception:
         print(traceback.format_exc())
-        print(f'{videopath} is not video file!')
+        print(f'{video_path} is not video file!')
 
 
 if __name__ == '__main__':

@@ -14,6 +14,7 @@ import time
 class ProgressBar:
     """プログレスバーを表示するクラス。インスタンス化を行う際、処理総数を入れる必要がある。
     """
+
     def __init__(self, processes: int) -> None:
         """処理総数を引数に取る。
 
@@ -57,12 +58,12 @@ class ProgressBar:
         ave = self.time_sum / self.current_progress
         return ave
 
-    def __del__(self, no_message: bool=False) -> None:
+    def __del__(self, no_message: bool = False) -> None:
         """クラス削除
 
         Args:
             no_message (bool, optional): 終了時メッセージを表示するかの選択をする.
-            
+
             Defaults to False.
         """
         if no_message:
@@ -119,7 +120,7 @@ def read_ini(application_path: str) -> bool:
     if not os.path.exists(config_ini_path):
         print('Do not exist config.ini!')
         create_ini(config_ini_path)
-        #return False
+        # return False
     # ini ファイルを読み込んで、必要な設定値を取得します。
     ini = configparser.ConfigParser()
     ini.read(config_ini_path, 'UTF-8')
@@ -138,24 +139,38 @@ def read_ini(application_path: str) -> bool:
     get_ff_exe(ffmpeg_path)
     return True
 
+
 def create_ini(config_ini_path: str):
     config = configparser.ConfigParser()
-    default_setting = {'width':'960', 'height':'540', 'xgrid':'4', 'ygrid':'4'}
+    default_setting = {'width': '960', 'height': '540',
+                       'xgrid': '4', 'ygrid': '4', 'ffmpeg_path': ''}
     config['DEFAULT'] = default_setting
     with open(config_ini_path, 'w') as configfile:
         # 指定したconfigファイルを書き込み
         config.write(configfile)
-        
+
+
 def get_ff_exe(ffmpeg_path: str) -> None:
+    """ffmpeg.exe, ffprobe.exeが存在するディレクトリのパスを貰い、ffmpeg_exe, ffprobe_exeを決定する。
+    ffmpeg_pathが空欄の場合は環境変数を設定しているものとみてなにも設定を行わずに終了。
+
+    Args:
+        ffmpeg_path (str): ffmpeg.exe, ffprobe.exeが存在するディレクトリのパスを記述してください
+
+    Raises:
+        FileNotFoundError: config.iniで与えられたパスに存在していない場合このエラーを吐きます。
+    """
     global ffmpeg_exe, ffprobe_exe
+    if ffmpeg_path == "":
+        return
     temp = os.path.join(ffmpeg_path, 'ffmpeg.exe')
     ffmpeg_exe = temp if os.path.exists(temp) else None
     temp = os.path.join(ffmpeg_path, 'ffprobe.exe')
     ffprobe_exe = temp if os.path.exists(temp) else None
     if ffmpeg_exe is None:
-        raise Exception('ffmpeg is not exists!')
+        raise FileNotFoundError('ffmpeg is not exists!')
     if ffprobe_exe is None:
-        raise Exception('ffprobe is not exists!')
+        raise FileNotFoundError('ffprobe is not exists!')
 # --------------------------------------------
 
 
@@ -198,6 +213,7 @@ def keyinput() -> None:
     while running:
         time.sleep(0.05)
         if keyboard.is_pressed('q'):
+            print()
             print('\r{}'.format("処理を中断しました。"), end='')
             os._exit(0)
 # --------------------------------------------

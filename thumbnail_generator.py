@@ -485,8 +485,12 @@ def cut_video(durationlist: list[float], video_path: str) -> list[Image.Image]:
         filename_without, etc = os.path.splitext(filename)
         save = filename_without + '_TG_' + str(i) + '.jpg'  # 一時的に保存するための変数。
         save = os.path.join(thumbnail_savepath, save)
-        subprocess.call([ffmpeg_exe, '-hwaccel', 'cuda', '-loglevel', 'quiet', '-ss', str(now),
+        if etc == '.wmv':
+            subprocess.call([ffmpeg_exe, '-loglevel', 'quiet', '-ss', str(now),
                         '-y', '-i', video_path, '-vframes', '1', '-q:v', '1', '-s', size, '-f', 'image2', save])
+        else:
+            subprocess.call([ffmpeg_exe, '-hwaccel', 'cuda', '-loglevel', 'quiet', '-ss', str(now),
+                            '-y', '-i', video_path, '-vframes', '1', '-q:v', '1', '-s', size, '-f', 'image2', save])
         image = Image.open(save)
         out_img = drawTime(image, float(now))
         images.append(out_img)

@@ -15,11 +15,11 @@ height = 540
 xgrid = 4
 ygrid = 4
 ffmpeg_path = 
-savepath = 
+save_thumbnail_path = 
 ```
 - width: 画像一枚当たりの横幅
 - height: 画像一枚当たりの高さ
 - xgrid: サムネイルを作成するとき画像を横に何枚並べるか
 - ygrid: サムネイルを作成するとき画像を縦に何枚並べるか
 - ffmpeg_path: ffmpeg.exeとffprobe.exeが存在するディレクトリを指定する。空欄であった場合環境変数を設定しているものとみなす。
-- savepath: 画像の保存先を設定。
+- save_thumbnail_path: 画像の保存先を設定する。

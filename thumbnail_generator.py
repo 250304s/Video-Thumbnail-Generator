@@ -112,7 +112,7 @@ def initialize() -> None:
 
 
 def read_ini(application_path: str) -> bool:
-    global width, height, xgrid, ygrid, gridsize, save_thumbnail_path
+    global width, height, xgrid, ygrid, gridsize
     # config.ini のパスを取得する
     config_ini_path = os.path.join(application_path, "config.ini")
     # ファイルが存在するか確認しエラーハンドリングを行います。
@@ -136,13 +136,8 @@ def read_ini(application_path: str) -> bool:
         e = traceback.format_exc()
         print(e)
         return False
-    if not os.path.exists(save_path):
-        print(f'{save_path} is not found')
-        save_thumbnail_path = os.path.join(application_path, 'save')
-        return False
-    else:
-        save_thumbnail_path = save_path
     get_ff_exe(ffmpeg_path)
+    define_thumbnail_savepath(save_path, application_path)
     return True
 
 
@@ -177,6 +172,19 @@ def get_ff_exe(ffmpeg_path: str) -> None:
         raise FileNotFoundError('ffmpeg is not exists!')
     if ffprobe_exe is None:
         raise FileNotFoundError('ffprobe is not exists!')
+    
+def define_thumbnail_savepath(save_path: str, application_path: str) -> bool:
+    global save_thumbnail_path
+    if not save_path:
+        save_thumbnail_path = os.path.join(application_path, 'save')
+        return True
+    elif os.path.exists(save_path):
+        save_thumbnail_path = save_path
+        return True
+    else:
+        print(f'{save_path} is not found')
+        save_thumbnail_path = os.path.join(application_path, 'save')
+        return False
 # --------------------------------------------
 
 

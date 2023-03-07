@@ -444,12 +444,19 @@ def create_thumbnail(video_path: str) -> None:
 
 
 if __name__ == '__main__':
+    parameter = "None"
+    print(sys.argv)
     initialize()
     if len(sys.argv) > 1:
-        for i in sys.argv:
-            if i == sys.argv[0]:
+        for i, arg in enumerate(sys.argv):
+            if arg == '--config':
+                parameter = sys.argv[i+1]
                 continue
-            create_thumbnail(i)
+            if arg == parameter:
+                continue
+            if arg == sys.argv[0]:
+                continue
+            create_thumbnail(arg)
     else:
         print('使い方:このファイルに動画をドラッグアンドドロップするか、コマンドラインで直接動画のパスを渡してください。')
         os.system('PAUSE')

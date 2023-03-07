@@ -108,12 +108,11 @@ def initialize() -> None:
         f'一枚の横幅: {width}px, 一枚の高さ: {height}px, 横の枚数: {xgrid}枚, 縦の枚数: {ygrid}枚')
 
     # サムネイル画像の保存先ディレクトリを作成する
-    save_thumbnail_path = os.path.join(application_path, 'save')
     os.makedirs(save_thumbnail_path, exist_ok=True)
 
 
 def read_ini(application_path: str) -> bool:
-    global width, height, xgrid, ygrid, gridsize
+    global width, height, xgrid, ygrid, gridsize, save_thumbnail_path
     # config.ini のパスを取得する
     config_ini_path = os.path.join(application_path, "config.ini")
     # ファイルが存在するか確認しエラーハンドリングを行います。
@@ -130,12 +129,19 @@ def read_ini(application_path: str) -> bool:
         xgrid = int(ini['DEFAULT']['xgrid'])
         ygrid = int(ini['DEFAULT']['ygrid'])
         ffmpeg_path = ini['DEFAULT']['ffmpeg_path']
+        save_path = ini['DEFAULT']['save_thumbnail_path']
         gridsize = xgrid * ygrid
     except KeyError:
         # キーが見つからない場合（値の取得に失敗した場合）はエラーとして処理します。
         e = traceback.format_exc()
         print(e)
         return False
+    if not os.path.exists(save_path):
+        print(f'{save_path} is not found')
+        save_thumbnail_path = os.path.join(application_path, 'save')
+        return False
+    else:
+        save_thumbnail_path = save_path
     get_ff_exe(ffmpeg_path)
     return True
 
@@ -143,7 +149,7 @@ def read_ini(application_path: str) -> bool:
 def create_ini(config_ini_path: str):
     config = configparser.ConfigParser()
     default_setting = {'width': '960', 'height': '540',
-                       'xgrid': '4', 'ygrid': '4', 'ffmpeg_path': ''}
+                       'xgrid': '4', 'ygrid': '4', 'ffmpeg_path': '', 'save_thumbnail_path':''}
     config['DEFAULT'] = default_setting
     with open(config_ini_path, 'w') as configfile:
         # 指定したconfigファイルを書き込み
@@ -438,12 +444,19 @@ def create_thumbnail(video_path: str) -> None:
 
 
 if __name__ == '__main__':
+    parameter = "None"
+    print(sys.argv)
     initialize()
     if len(sys.argv) > 1:
-        for i in sys.argv:
-            if i == sys.argv[0]:
+        for i, arg in enumerate(sys.argv):
+            if arg == '--config':
+                parameter = sys.argv[i+1]
                 continue
-            create_thumbnail(i)
+            if arg == parameter:
+                continue
+            if arg == sys.argv[0]:
+                continue
+            create_thumbnail(arg)
     else:
         print('使い方:このファイルに動画をドラッグアンドドロップするか、コマンドラインで直接動画のパスを渡してください。')
         os.system('PAUSE')

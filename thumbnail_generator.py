@@ -85,33 +85,44 @@ ffprobe_exe = "ffprobe"
 running = True
 # ━━━━━━━━━━━━━━━━━
 
+def section_check():
+    section = "DEFAULT"
+    if len(sys.argv) > 1:
+        for i, arg in enumerate(sys.argv):
+            if arg in ['-C', '--config']:
+                section = sys.argv[i+1]
+                del sys.argv[i]
+                sys.argv.remove(section)
+    initialize(section)
 
-def initialize() -> None:
+
+def initialize(section: str = 'DEFAULT') -> None:
     """
     初期設定を行う。
     """
     global save_thumbnail_path
-
     # 実行ファイルが存在するディレクトリのパスを取得する
     if getattr(sys, 'frozen', False):
         application_path = os.path.dirname(sys.executable)
     else:
         application_path = os.path.dirname(os.path.abspath(__file__))
-
+        
+    save_thumbnail_path = os.path.join(application_path, 'save')
     # 設定ファイル (config.ini) を読み込む (結果出力)
-    if read_ini(application_path):
+    if read_ini(application_path, section):
         print('Successfully loaded config.ini.')
     else:
         print('Failed to load config.ini.')
     # サムネイル画像のサイズ (結果出力)
     print(
-        f'一枚の横幅: {width}px, 一枚の高さ: {height}px, 横の枚数: {xgrid}枚, 縦の枚数: {ygrid}枚')
+        f'一枚の横幅: {width}px, 一枚の高さ: {height}px, 横の枚数: {xgrid}枚, 縦の枚数: {ygrid}枚, 指定セクション: {section}\
+            \nffmpegの位置: {ffmpeg_exe}, サムネイルの保存先: {save_thumbnail_path}')
 
     # サムネイル画像の保存先ディレクトリを作成する
     os.makedirs(save_thumbnail_path, exist_ok=True)
 
 
-def read_ini(application_path: str) -> bool:
+def read_ini(application_path: str, section: str) -> bool:
     global width, height, xgrid, ygrid, gridsize
     # config.ini のパスを取得する
     config_ini_path = os.path.join(application_path, "config.ini")
@@ -124,12 +135,12 @@ def read_ini(application_path: str) -> bool:
     ini = configparser.ConfigParser()
     ini.read(config_ini_path, 'UTF-8')
     try:
-        width = int(ini['DEFAULT']['width'])
-        height = int(ini['DEFAULT']['height'])
-        xgrid = int(ini['DEFAULT']['xgrid'])
-        ygrid = int(ini['DEFAULT']['ygrid'])
-        ffmpeg_path = ini['DEFAULT']['ffmpeg_path']
-        save_path = ini['DEFAULT']['save_thumbnail_path']
+        width = int(ini[section]['width'])
+        height = int(ini[section]['height'])
+        xgrid = int(ini[section]['xgrid'])
+        ygrid = int(ini[section]['ygrid'])
+        ffmpeg_path = ini[section]['ffmpeg_path']
+        save_path = ini[section]['save_thumbnail_path']
         gridsize = xgrid * ygrid
     except KeyError:
         # キーが見つからない場合（値の取得に失敗した場合）はエラーとして処理します。
@@ -137,7 +148,7 @@ def read_ini(application_path: str) -> bool:
         print(e)
         return False
     get_ff_exe(ffmpeg_path)
-    define_thumbnail_savepath(save_path, application_path)
+    define_thumbnail_savepath(save_path)
     return True
 
 
@@ -173,17 +184,15 @@ def get_ff_exe(ffmpeg_path: str) -> None:
     if ffprobe_exe is None:
         raise FileNotFoundError('ffprobe is not exists!')
     
-def define_thumbnail_savepath(save_path: str, application_path: str) -> bool:
+def define_thumbnail_savepath(save_path: str) -> bool:
     global save_thumbnail_path
     if not save_path:
-        save_thumbnail_path = os.path.join(application_path, 'save')
         return True
     elif os.path.exists(save_path):
         save_thumbnail_path = save_path
         return True
     else:
         print(f'{save_path} is not found')
-        save_thumbnail_path = os.path.join(application_path, 'save')
         return False
 # --------------------------------------------
 
@@ -452,16 +461,9 @@ def create_thumbnail(video_path: str) -> None:
 
 
 if __name__ == '__main__':
-    parameter = "None"
-    print(sys.argv)
-    initialize()
+    section_check()
     if len(sys.argv) > 1:
-        for i, arg in enumerate(sys.argv):
-            if arg == '--config':
-                parameter = sys.argv[i+1]
-                continue
-            if arg == parameter:
-                continue
+        for arg in sys.argv:
             if arg == sys.argv[0]:
                 continue
             create_thumbnail(arg)

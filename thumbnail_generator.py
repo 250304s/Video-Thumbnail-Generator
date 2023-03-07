@@ -327,8 +327,12 @@ def get_streams(video_path: str) -> tuple[dict, dict]:
     # ストリーム情報からビデオとオーディオの情報を抜き出す
     video_stream = None
     audio_stream = None
+    image_stream = None
 
     for stream in data['streams']:
+        if stream['codec_name'] == 'png':
+            image_stream = stream
+            continue
         if stream['codec_type'] == 'video':
             video_stream = stream
         elif stream['codec_type'] == 'audio':

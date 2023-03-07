@@ -22,4 +22,4 @@ save_thumbnail_path =
 - xgrid: サムネイルを作成するとき画像を横に何枚並べるか
 - ygrid: サムネイルを作成するとき画像を縦に何枚並べるか
 - ffmpeg_path: ffmpeg.exeとffprobe.exeが存在するディレクトリを指定する。空欄であった場合環境変数を設定しているものとみなす。
-- save_thumbnail_path: 画像の保存先を設定する。
+- save_thumbnail_path: 画像の保存先を設定する。存在しないディレクトリであった場合はデフォルトの保存先である.\saveに保存される。

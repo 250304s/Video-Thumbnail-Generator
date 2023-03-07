@@ -32,7 +32,7 @@ class ProgressBar:
         """
         remaining_processes = self.processes - self.current_progress
         now_progress = int((self.current_progress / self.processes) * 30)
-        progress = "#"*(now_progress) + " "*(30 - now_progress)
+        progress = "■"*(now_progress) + " "*(30 - now_progress)
         print('\r[{}] {:02}/{} 残り時間: {:04.1f}s'.format(progress, self.current_progress,
               self.processes, self.get_time()*remaining_processes), end='')
 
@@ -83,6 +83,7 @@ gridsize = xgrid * ygrid
 ffmpeg_exe = "ffmpeg"
 ffprobe_exe = "ffprobe"
 running = True
+font = "meiryo.ttc"
 # ━━━━━━━━━━━━━━━━━
 
 
@@ -437,7 +438,7 @@ def grid_picture(images: list[Image.Image], video_name: str, videoinfo: str) -> 
         offset_y = y * (height + margin) + information_margin
         result_image.paste(image, (offset_x, offset_y))
 
-    font = ImageFont.truetype(f'C:\Windows\Fonts\HGRSMP.TTF', fontsize)
+    font = ImageFont.truetype(f'arial.ttf', fontsize)
     draw = ImageDraw.Draw(result_image)
     draw.multiline_text(
         (widthmargin, widthmargin),
@@ -458,6 +459,7 @@ def grid_picture(images: list[Image.Image], video_name: str, videoinfo: str) -> 
 def get_image_list(durationlist: list[float], video_path: str) -> list[Image.Image]:
     """"並列で処理を行う
     """
+    print('━'*100)
     with ThreadPoolExecutor(max_workers=3) as executor:
         executor.submit(keyinput)
         future = executor.submit(cut_video, durationlist, video_path)

@@ -79,6 +79,7 @@ xgrid = 4
 ygrid = 4
 save_thumbnail_path = ".\\"
 gridsize = xgrid * ygrid
+ffpeg_path = "ffmpeg"
 running = True
 # ━━━━━━━━━━━━━━━━━
 

@@ -421,12 +421,15 @@ def grid_picture(images: list[Image.Image], video_name: str, videoinfo: str) -> 
     global width, height, xgrid, ygrid, thumbnail_savepath
     margin = 0  # 画像間の隙間を表す変数。
     widthmargin = 10  # 端の画像の隙間を表す変数。
-    information_margin = 200  # 情報を書き込む空白を決める変数。
-    fontsize = int(width/24)  # 情報を書き込む文字のサイズ横幅によって決まる。
+    information_margin = 200 # 情報を書き込む空白を決める変数。
+    fontsize = 40 # 情報を書き込む文字のサイズ横幅によって決まる。
+    if width * xgrid <= 1440:
+        information_margin = width * xgrid // 7
+        fontsize = width * xgrid // 45
 
     # 一つの画像に合成する
     result_image = Image.new('RGB', ((width + margin) * xgrid - margin + widthmargin * 2,
-                             (height + margin) * ygrid - margin + information_margin + 10), (128, 128, 128))
+                             (height + margin) * ygrid - margin + information_margin + 10), (27,32,58))
     for i, image in enumerate(images):
         x = i % xgrid
         y = i // xgrid

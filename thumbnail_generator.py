@@ -79,8 +79,8 @@ xgrid = 4
 ygrid = 4
 save_thumbnail_path = ".\\"
 gridsize = xgrid * ygrid
-ffpeg_path = "ffmpeg"
-ffprobe_path = "ffprobe"
+ffmpeg_exe = "ffmpeg"
+ffprobe_exe = "ffprobe"
 running = True
 # ━━━━━━━━━━━━━━━━━
 
@@ -235,7 +235,7 @@ def get_streams(video_path: str) -> tuple[dict, dict]:
         tuple: 動画ストリームと音声ストリームのタプル
     """
     # ffprobeコマンドの実行(引数：メッセージ少なく、JSON形式で出力、全ストリーム情報表示)
-    cmd = [ffprobe_path, '-v', 'quiet', '-print_format',
+    cmd = [ffprobe_exe, '-v', 'quiet', '-print_format',
            'json', '-show_streams', video_path]
     output = subprocess.check_output(cmd)
     data = json.loads(output)
@@ -277,7 +277,7 @@ def get_format(video_path: str) -> dict:
     Returns:
         dict: _description_
     """
-    cmd = [ffprobe_path, '-v', 'quiet', '-print_format',
+    cmd = [ffprobe_exe, '-v', 'quiet', '-print_format',
            'json', '-show_format', video_path]
     output = subprocess.check_output(cmd)
     video_format = json.loads(output)['format']
@@ -378,7 +378,7 @@ def cut_video(durationlist: list[float], video_path: str) -> list[Image.Image]:
         filename_without, etc = os.path.splitext(filename)
         save = filename_without + '_TG_' + str(i) + '.jpg'  # 一時的に保存するための変数。
         save = os.path.join(save_thumbnail_path, save)
-        subprocess.call([ffpeg_path, '-hwaccel', 'cuda', '-loglevel', 'quiet', '-ss', str(now),
+        subprocess.call([ffmpeg_exe, '-hwaccel', 'cuda', '-loglevel', 'quiet', '-ss', str(now),
                         '-y', '-i', video_path, '-vframes', '1', '-q:v', '1', '-s', size, '-f', 'image2', save])
         image = Image.open(save)
         out_img = drawTime(image, float(now))

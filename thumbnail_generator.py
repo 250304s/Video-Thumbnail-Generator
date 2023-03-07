@@ -14,6 +14,7 @@ import time
 class ProgressBar:
     """プログレスバーを表示するクラス。インスタンス化を行う際、処理総数を入れる必要がある。
     """
+
     def __init__(self, processes: int) -> None:
         """処理総数を引数に取る。
 
@@ -57,12 +58,12 @@ class ProgressBar:
         ave = self.time_sum / self.current_progress
         return ave
 
-    def __del__(self, no_message: bool=False) -> None:
+    def __del__(self, no_message: bool = False) -> None:
         """クラス削除
 
         Args:
             no_message (bool, optional): 終了時メッセージを表示するかの選択をする.
-            
+
             Defaults to False.
         """
         if no_message:
@@ -79,6 +80,8 @@ xgrid = 4
 ygrid = 4
 save_thumbnail_path = ".\\"
 gridsize = xgrid * ygrid
+ffmpeg_exe = "ffmpeg"
+ffprobe_exe = "ffprobe"
 running = True
 # ━━━━━━━━━━━━━━━━━
 
@@ -117,7 +120,7 @@ def read_ini(application_path: str) -> bool:
     if not os.path.exists(config_ini_path):
         print('Do not exist config.ini!')
         create_ini(config_ini_path)
-        #return False
+        # return False
     # ini ファイルを読み込んで、必要な設定値を取得します。
     ini = configparser.ConfigParser()
     ini.read(config_ini_path, 'UTF-8')
@@ -126,21 +129,48 @@ def read_ini(application_path: str) -> bool:
         height = int(ini['DEFAULT']['height'])
         xgrid = int(ini['DEFAULT']['xgrid'])
         ygrid = int(ini['DEFAULT']['ygrid'])
+        ffmpeg_path = ini['DEFAULT']['ffmpeg_path']
         gridsize = xgrid * ygrid
     except KeyError:
         # キーが見つからない場合（値の取得に失敗した場合）はエラーとして処理します。
         e = traceback.format_exc()
         print(e)
         return False
+    get_ff_exe(ffmpeg_path)
     return True
+
 
 def create_ini(config_ini_path: str):
     config = configparser.ConfigParser()
-    default_setting = {'width':'960', 'height':'540', 'xgrid':'4', 'ygrid':'4'}
+    default_setting = {'width': '960', 'height': '540',
+                       'xgrid': '4', 'ygrid': '4', 'ffmpeg_path': ''}
     config['DEFAULT'] = default_setting
     with open(config_ini_path, 'w') as configfile:
         # 指定したconfigファイルを書き込み
         config.write(configfile)
+
+
+def get_ff_exe(ffmpeg_path: str) -> None:
+    """ffmpeg.exe, ffprobe.exeが存在するディレクトリのパスを貰い、ffmpeg_exe, ffprobe_exeを決定する。
+    ffmpeg_pathが空欄の場合は環境変数を設定しているものとみてなにも設定を行わずに終了。
+
+    Args:
+        ffmpeg_path (str): ffmpeg.exe, ffprobe.exeが存在するディレクトリのパスを記述してください
+
+    Raises:
+        FileNotFoundError: config.iniで与えられたパスに存在していない場合このエラーを吐きます。
+    """
+    global ffmpeg_exe, ffprobe_exe
+    if ffmpeg_path == "":
+        return
+    temp = os.path.join(ffmpeg_path, 'ffmpeg.exe')
+    ffmpeg_exe = temp if os.path.exists(temp) else None
+    temp = os.path.join(ffmpeg_path, 'ffprobe.exe')
+    ffprobe_exe = temp if os.path.exists(temp) else None
+    if ffmpeg_exe is None:
+        raise FileNotFoundError('ffmpeg is not exists!')
+    if ffprobe_exe is None:
+        raise FileNotFoundError('ffprobe is not exists!')
 # --------------------------------------------
 
 
@@ -183,6 +213,7 @@ def keyinput() -> None:
     while running:
         time.sleep(0.05)
         if keyboard.is_pressed('q'):
+            print()
             print('\r{}'.format("処理を中断しました。"), end='')
             os._exit(0)
 # --------------------------------------------
@@ -233,7 +264,7 @@ def get_streams(video_path: str) -> tuple[dict, dict]:
         tuple: 動画ストリームと音声ストリームのタプル
     """
     # ffprobeコマンドの実行(引数：メッセージ少なく、JSON形式で出力、全ストリーム情報表示)
-    cmd = ['ffprobe', '-v', 'quiet', '-print_format',
+    cmd = [ffprobe_exe, '-v', 'quiet', '-print_format',
            'json', '-show_streams', video_path]
     output = subprocess.check_output(cmd)
     data = json.loads(output)
@@ -275,7 +306,7 @@ def get_format(video_path: str) -> dict:
     Returns:
         dict: _description_
     """
-    cmd = ['ffprobe', '-v', 'quiet', '-print_format',
+    cmd = [ffprobe_exe, '-v', 'quiet', '-print_format',
            'json', '-show_format', video_path]
     output = subprocess.check_output(cmd)
     video_format = json.loads(output)['format']
@@ -376,7 +407,7 @@ def cut_video(durationlist: list[float], video_path: str) -> list[Image.Image]:
         filename_without, etc = os.path.splitext(filename)
         save = filename_without + '_TG_' + str(i) + '.jpg'  # 一時的に保存するための変数。
         save = os.path.join(save_thumbnail_path, save)
-        subprocess.call(['ffmpeg', '-hwaccel', 'cuda', '-loglevel', 'quiet', '-ss', str(now),
+        subprocess.call([ffmpeg_exe, '-hwaccel', 'cuda', '-loglevel', 'quiet', '-ss', str(now),
                         '-y', '-i', video_path, '-vframes', '1', '-q:v', '1', '-s', size, '-f', 'image2', save])
         image = Image.open(save)
         out_img = drawTime(image, float(now))

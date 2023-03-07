@@ -128,12 +128,14 @@ def read_ini(application_path: str) -> bool:
         height = int(ini['DEFAULT']['height'])
         xgrid = int(ini['DEFAULT']['xgrid'])
         ygrid = int(ini['DEFAULT']['ygrid'])
+        ffmpeg_path = ini['DEFAULT']['ffmpeg_path']
         gridsize = xgrid * ygrid
     except KeyError:
         # キーが見つからない場合（値の取得に失敗した場合）はエラーとして処理します。
         e = traceback.format_exc()
         print(e)
         return False
+    get_ff_exe(ffmpeg_path)
     return True
 
 def create_ini(config_ini_path: str):
@@ -143,6 +145,17 @@ def create_ini(config_ini_path: str):
     with open(config_ini_path, 'w') as configfile:
         # 指定したconfigファイルを書き込み
         config.write(configfile)
+        
+def get_ff_exe(ffmpeg_path: str) -> None:
+    global ffmpeg_exe, ffprobe_exe
+    temp = os.path.join(ffmpeg_path, 'ffmpeg.exe')
+    ffmpeg_exe = temp if os.path.exists(temp) else None
+    temp = os.path.join(ffmpeg_path, 'ffprobe.exe')
+    ffprobe_exe = temp if os.path.exists(temp) else None
+    if ffmpeg_exe is None:
+        raise Exception('ffmpeg is not exists!')
+    if ffprobe_exe is None:
+        raise Exception('ffprobe is not exists!')
 # --------------------------------------------
 
 

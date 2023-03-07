@@ -32,7 +32,7 @@ class ProgressBar:
         """
         remaining_processes = self.processes - self.current_progress
         now_progress = int((self.current_progress / self.processes) * 30)
-        progress = "#"*(now_progress) + " "*(30 - now_progress)
+        progress = "■"*(now_progress) + " "*(30 - now_progress)
         print('\r[{}] {:02}/{} 残り時間: {:04.1f}s'.format(progress, self.current_progress,
               self.processes, self.get_time()*remaining_processes), end='')
 
@@ -83,6 +83,7 @@ gridsize = xgrid * ygrid
 ffmpeg_exe = "ffmpeg"
 ffprobe_exe = "ffprobe"
 running = True
+font = "meiryo.ttc"
 # ━━━━━━━━━━━━━━━━━
 
 
@@ -421,12 +422,15 @@ def grid_picture(images: list[Image.Image], video_name: str, videoinfo: str) -> 
     global width, height, xgrid, ygrid, thumbnail_savepath
     margin = 0  # 画像間の隙間を表す変数。
     widthmargin = 10  # 端の画像の隙間を表す変数。
-    information_margin = 200  # 情報を書き込む空白を決める変数。
-    fontsize = int(width/24)  # 情報を書き込む文字のサイズ横幅によって決まる。
+    information_margin = 200 # 情報を書き込む空白を決める変数。
+    fontsize = 40 # 情報を書き込む文字のサイズ横幅によって決まる。
+    if width * xgrid <= 1440:
+        information_margin = width * xgrid // 7
+        fontsize = width * xgrid // 45
 
     # 一つの画像に合成する
     result_image = Image.new('RGB', ((width + margin) * xgrid - margin + widthmargin * 2,
-                             (height + margin) * ygrid - margin + information_margin + 10), (128, 128, 128))
+                             (height + margin) * ygrid - margin + information_margin + 10), (27,32,58))
     for i, image in enumerate(images):
         x = i % xgrid
         y = i // xgrid
@@ -434,7 +438,7 @@ def grid_picture(images: list[Image.Image], video_name: str, videoinfo: str) -> 
         offset_y = y * (height + margin) + information_margin
         result_image.paste(image, (offset_x, offset_y))
 
-    font = ImageFont.truetype(f'C:\Windows\Fonts\HGRSMP.TTF', fontsize)
+    font = ImageFont.truetype(f'arial.ttf', fontsize)
     draw = ImageDraw.Draw(result_image)
     draw.multiline_text(
         (widthmargin, widthmargin),
@@ -455,6 +459,7 @@ def grid_picture(images: list[Image.Image], video_name: str, videoinfo: str) -> 
 def get_image_list(durationlist: list[float], video_path: str) -> list[Image.Image]:
     """"並列で処理を行う
     """
+    print('━'*100)
     with ThreadPoolExecutor(max_workers=3) as executor:
         executor.submit(keyinput)
         future = executor.submit(cut_video, durationlist, video_path)

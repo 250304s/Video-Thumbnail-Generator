@@ -78,7 +78,7 @@ width = 960
 height = 540
 xgrid = 4
 ygrid = 4
-save_thumbnail_path = ".\\"
+thumbnail_savepath = ".\\"
 gridsize = xgrid * ygrid
 ffmpeg_exe = "ffmpeg"
 ffprobe_exe = "ffprobe"
@@ -100,14 +100,14 @@ def initialize(section: str = 'DEFAULT') -> None:
     """
     初期設定を行う。
     """
-    global save_thumbnail_path
+    global thumbnail_savepath
     # 実行ファイルが存在するディレクトリのパスを取得する
     if getattr(sys, 'frozen', False):
         application_path = os.path.dirname(sys.executable)
     else:
         application_path = os.path.dirname(os.path.abspath(__file__))
         
-    save_thumbnail_path = os.path.join(application_path, 'save')
+    thumbnail_savepath = os.path.join(application_path, 'save')
     # 設定ファイル (config.ini) を読み込む (結果出力)
     if read_ini(application_path, section):
         print('Successfully loaded config.ini.')
@@ -116,10 +116,10 @@ def initialize(section: str = 'DEFAULT') -> None:
     # サムネイル画像のサイズ (結果出力)
     print(
         f'一枚の横幅: {width}px, 一枚の高さ: {height}px, 横の枚数: {xgrid}枚, 縦の枚数: {ygrid}枚, 指定セクション: {section}\
-            \nffmpegの位置: {ffmpeg_exe}, サムネイルの保存先: {save_thumbnail_path}')
+            \nffmpegの位置: {ffmpeg_exe}, サムネイルの保存先: {thumbnail_savepath}')
 
     # サムネイル画像の保存先ディレクトリを作成する
-    os.makedirs(save_thumbnail_path, exist_ok=True)
+    os.makedirs(thumbnail_savepath, exist_ok=True)
 
 
 def read_ini(application_path: str, section: str) -> bool:
@@ -140,7 +140,7 @@ def read_ini(application_path: str, section: str) -> bool:
         xgrid = int(ini[section]['xgrid'])
         ygrid = int(ini[section]['ygrid'])
         ffmpeg_path = ini[section]['ffmpeg_path']
-        save_path = ini[section]['save_thumbnail_path']
+        save_path = ini[section]['thumbnail_savepath']
         gridsize = xgrid * ygrid
     except KeyError:
         # キーが見つからない場合（値の取得に失敗した場合）はエラーとして処理します。
@@ -155,7 +155,7 @@ def read_ini(application_path: str, section: str) -> bool:
 def create_ini(config_ini_path: str):
     config = configparser.ConfigParser()
     default_setting = {'width': '960', 'height': '540',
-                       'xgrid': '4', 'ygrid': '4', 'ffmpeg_path': '', 'save_thumbnail_path':''}
+                       'xgrid': '4', 'ygrid': '4', 'ffmpeg_path': '', 'thumbnail_savepath':''}
     config['DEFAULT'] = default_setting
     with open(config_ini_path, 'w') as configfile:
         # 指定したconfigファイルを書き込み
@@ -185,11 +185,19 @@ def get_ff_exe(ffmpeg_path: str) -> None:
         raise FileNotFoundError('ffprobe is not exists!')
     
 def define_thumbnail_savepath(save_path: str) -> bool:
-    global save_thumbnail_path
+    """thumbnail_savepath
+
+    Args:
+        save_path (str): _description_
+
+    Returns:
+        bool: _description_
+    """
+    global thumbnail_savepath
     if not save_path:
         return True
     elif os.path.exists(save_path):
-        save_thumbnail_path = save_path
+        thumbnail_savepath = save_path
         return True
     else:
         print(f'{save_path} is not found')
@@ -229,8 +237,7 @@ def human_readable_size(size: int) -> str:
 
 
 def keyinput() -> None:
-    """
-    qキーが入力されたとき、プログラムを終了する。
+    """qキーが入力されたとき、プログラムを終了する。
     """
     global running
     while running:
@@ -244,6 +251,12 @@ def keyinput() -> None:
 
 def get_video_info(video_path: str) -> str:
     """ffprobeを用いて動画の情報を得る。その後加工して文字列として渡す。
+
+    Args:
+        video_path (str): 動画ファイルのパス
+
+    Returns:
+        str: 動画情報を書き込んだ文
     """
     # 動画ファイルのファイル名を取得する
     video_name = os.path.basename(video_path)
@@ -370,7 +383,7 @@ def grid_picture(images: list[Image.Image], video_name: str, videoinfo: str) -> 
     """リストで渡された画像をグリッド上に配置する。
     また、動画情報を書き込むために上部に空白を開けて書き込む。
     """
-    global width, height, xgrid, ygrid, save_thumbnail_path
+    global width, height, xgrid, ygrid, thumbnail_savepath
     margin = 0  # 画像間の隙間を表す変数。
     widthmargin = 10  # 端の画像の隙間を表す変数。
     information_margin = 200  # 情報を書き込む空白を決める変数。
@@ -399,8 +412,8 @@ def grid_picture(images: list[Image.Image], video_name: str, videoinfo: str) -> 
 
     # 保存する
     print(
-        f'Successfully created {video_name}.jpg in the "{save_thumbnail_path}\\"')
-    savepath = os.path.join(save_thumbnail_path, video_name + ".jpg")
+        f'Successfully created {video_name}.jpg in the "{thumbnail_savepath}\\"')
+    savepath = os.path.join(thumbnail_savepath, video_name + ".jpg")
     result_image.save(savepath)
 
 
@@ -419,7 +432,7 @@ def cut_video(durationlist: list[float], video_path: str) -> list[Image.Image]:
         また抜き取った時間を画像に書き込む。
         その後、変換した画像をリストに格納する。
     """
-    global width, height, running, save_thumbnail_path
+    global width, height, running, thumbnail_savepath
     running = True
     size = str(width) + "*" + str(height)
     images = []  # ffmpegで生成した画像を格納するリスト
@@ -429,7 +442,7 @@ def cut_video(durationlist: list[float], video_path: str) -> list[Image.Image]:
         filename = os.path.basename(video_path)
         filename_without, etc = os.path.splitext(filename)
         save = filename_without + '_TG_' + str(i) + '.jpg'  # 一時的に保存するための変数。
-        save = os.path.join(save_thumbnail_path, save)
+        save = os.path.join(thumbnail_savepath, save)
         subprocess.call([ffmpeg_exe, '-hwaccel', 'cuda', '-loglevel', 'quiet', '-ss', str(now),
                         '-y', '-i', video_path, '-vframes', '1', '-q:v', '1', '-s', size, '-f', 'image2', save])
         image = Image.open(save)

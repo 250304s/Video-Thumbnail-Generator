@@ -85,7 +85,10 @@ ffprobe_exe = "ffprobe"
 running = True
 # ━━━━━━━━━━━━━━━━━
 
-def section_check():
+
+def section_check() -> None:
+    """-C もしくは --config引数があるかを調べる。存在する場合一つ後ろのものをキーとしてinitializeへ与える。
+    """
     section = "DEFAULT"
     if len(sys.argv) > 1:
         for i, arg in enumerate(sys.argv):
@@ -106,7 +109,7 @@ def initialize(section: str = 'DEFAULT') -> None:
         application_path = os.path.dirname(sys.executable)
     else:
         application_path = os.path.dirname(os.path.abspath(__file__))
-        
+
     thumbnail_savepath = os.path.join(application_path, 'save')
     # 設定ファイル (config.ini) を読み込む (結果出力)
     if read_ini(application_path, section):
@@ -123,6 +126,15 @@ def initialize(section: str = 'DEFAULT') -> None:
 
 
 def read_ini(application_path: str, section: str) -> bool:
+    """config.iniファイルを読み込む。その後各グローバル変数へ代入。
+
+    Args:
+        application_path (str): この実行ファイルがある場所
+        section (str): ユーザーが設定したconfigのセクション
+
+    Returns:
+        bool: config.iniファイルの読み込みに成功した場合True, 失敗した場合False
+    """
     global width, height, xgrid, ygrid, gridsize
     # config.ini のパスを取得する
     config_ini_path = os.path.join(application_path, "config.ini")
@@ -130,7 +142,6 @@ def read_ini(application_path: str, section: str) -> bool:
     if not os.path.exists(config_ini_path):
         print('Do not exist config.ini!')
         create_ini(config_ini_path)
-        # return False
     # ini ファイルを読み込んで、必要な設定値を取得します。
     ini = configparser.ConfigParser()
     ini.read(config_ini_path, 'UTF-8')
@@ -152,10 +163,15 @@ def read_ini(application_path: str, section: str) -> bool:
     return True
 
 
-def create_ini(config_ini_path: str):
+def create_ini(config_ini_path: str) -> None:
+    """config.iniを作成する
+
+    Args:
+        config_ini_path (str): config.iniを作成する場所
+    """
     config = configparser.ConfigParser()
     default_setting = {'width': '960', 'height': '540',
-                       'xgrid': '4', 'ygrid': '4', 'ffmpeg_path': '', 'thumbnail_savepath':''}
+                       'xgrid': '4', 'ygrid': '4', 'ffmpeg_path': '', 'thumbnail_savepath': ''}
     config['DEFAULT'] = default_setting
     with open(config_ini_path, 'w') as configfile:
         # 指定したconfigファイルを書き込み
@@ -163,7 +179,7 @@ def create_ini(config_ini_path: str):
 
 
 def get_ff_exe(ffmpeg_path: str) -> None:
-    """ffmpeg.exe, ffprobe.exeが存在するディレクトリのパスを貰い、ffmpeg_exe, ffprobe_exeを決定する。
+    """ffmpeg.exe, ffprobe.exeが存在するディレクトリのパスを貰い、ffmpeg_exe, ffprobe_exeを決定する。\n
     ffmpeg_pathが空欄の場合は環境変数を設定しているものとみてなにも設定を行わずに終了。
 
     Args:
@@ -183,15 +199,18 @@ def get_ff_exe(ffmpeg_path: str) -> None:
         raise FileNotFoundError('ffmpeg is not exists!')
     if ffprobe_exe is None:
         raise FileNotFoundError('ffprobe is not exists!')
-    
+
+
 def define_thumbnail_savepath(save_path: str) -> bool:
-    """thumbnail_savepath
+    """グローバル変数、thumbnail_savepathを設定する。保存したい場所のディレクトリが存在しない場合\n
+    thumbnail_savepathはデフォルトである実行ファイルのディレクトリ上のsaveフォルダになる。
+    空欄の場合も同様。
 
     Args:
-        save_path (str): _description_
+        save_path (str): 保存したい場所のディレクトリ
 
     Returns:
-        bool: _description_
+        bool: 成功したらTrue, 失敗したらFalse
     """
     global thumbnail_savepath
     if not save_path:
@@ -334,13 +353,13 @@ def get_streams(video_path: str) -> tuple[dict, dict]:
 
 
 def get_format(video_path: str) -> dict:
-    """_summary_
+    """与えられた動画のフォーマット情報を返す。
 
     Args:
-        video_path (str): _description_
+        video_path (str): 動画のパス
 
     Returns:
-        dict: _description_
+        dict: 動画情報が載った辞書
     """
     cmd = [ffprobe_exe, '-v', 'quiet', '-print_format',
            'json', '-show_format', video_path]
@@ -350,7 +369,14 @@ def get_format(video_path: str) -> dict:
 
 
 def drawTime(image: Image.Image, second: float) -> Image:
-    """渡された画像ファイルとその時刻を書き込む。
+    """渡された画像ファイルに与えられた時刻を書き込む。
+    
+    Args:
+        image (Image.Image): Pillowで取得した画像
+        second (float): その画像が切り取られた時間 秒数
+
+    Returns:
+        Image: 秒数を書き込んだPillow画像
     """
     global width, height
     fontsize = int(width / 16)  # 文字のサイズ
@@ -382,6 +408,11 @@ def drawTime(image: Image.Image, second: float) -> Image:
 def grid_picture(images: list[Image.Image], video_name: str, videoinfo: str) -> None:
     """リストで渡された画像をグリッド上に配置する。
     また、動画情報を書き込むために上部に空白を開けて書き込む。
+
+    Args:
+        images (list[Image.Image]): Pillowで得た画像をリストで管理したもの。
+        video_name (str): 動画の名前(拡張子を除く)
+        videoinfo (str): get_video_infoで得た動画情報
     """
     global width, height, xgrid, ygrid, thumbnail_savepath
     margin = 0  # 画像間の隙間を表す変数。
@@ -431,6 +462,13 @@ def cut_video(durationlist: list[float], video_path: str) -> list[Image.Image]:
     """ffmpegでリストの中に格納された時間のフレームを抜き取り画像へ変換する。
         また抜き取った時間を画像に書き込む。
         その後、変換した画像をリストに格納する。
+
+    Args:
+        durationlist (list[float]): 秒数をリストで管理したもの。
+        video_path (str): 動画のパス
+
+    Returns:
+        list[Image.Image]: 画像をPillowのリストで管理したもの。
     """
     global width, height, running, thumbnail_savepath
     running = True

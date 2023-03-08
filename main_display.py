@@ -92,13 +92,19 @@ class Application(tk.Frame):
         print("ダイアログが閉じられた")
 
     def create_tool_bar(self):
+        def clicked_43():
+            button1['state'] = 'disabled'
+            button2['state'] = 'normal'
+        def clicked_169():
+            button1['state'] = 'normal'
+            button2['state'] = 'disabled'
         ''' ツールバー'''
 
         frame_tool_bar = tk.Frame(self.master, borderwidth = 2, relief = tk.SUNKEN)
 
         label1 = tk.Label(frame_tool_bar, text="アスペクト比を選択")
-        button1 = tk.Button(frame_tool_bar, text = "4:3", width = 4)
-        button2 = tk.Button(frame_tool_bar, text = "16:9", width = 4)
+        button1 = tk.Button(frame_tool_bar, text = "4:3", width = 4, command=clicked_43)
+        button2 = tk.Button(frame_tool_bar, text = "16:9", width = 4, command=clicked_169)
         #button3 = tk.Button(frame_tool_bar, text = "3", width = 2)
 
         label1.pack(side = tk.LEFT)
@@ -116,25 +122,34 @@ class Application(tk.Frame):
         pb = ttk.Progressbar(frame_status_bar, orient="horizontal", variable=pbval, maximum=10, length=150 ,mode="determinate")
         pb.pack(side='left')
 
-        """
         self.label1 = tk.Label(frame_status_bar, text = "ステータスラベル１")
         self.label2 = tk.Label(frame_status_bar, text = "ステータスラベル２")
         
         self.label1.pack(side = tk.LEFT)
-        self.label2.pack(side = tk.RIGHT)"""
+        self.label2.pack(side = tk.RIGHT)
 
         frame_status_bar.pack(side = tk.BOTTOM, fill = tk.X)
 
     def create_side_panel(self):
         '''サイドパネル'''
+        def clicked_960():
+            button1['state'] = 'disabled'
+            button2['state'] = 'normal'
+            button1.configure(bg='#03dfa6')
+            button2.configure(bg='#f2f2f2')
+        def clicked_480():
+            button1['state'] = 'normal'
+            button2['state'] = 'disabled'
+            button1.configure(bg='#f2f2f2')
+            button2.configure(bg='#03dfa6')
         side_panel = tk.Frame(self.master, borderwidth = 2, relief = tk.SUNKEN)
         
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         width_setting_panel = tk.Frame(side_panel, borderwidth = 2, relief = tk.SUNKEN)
         
         label1 = tk.Label(width_setting_panel, text="横幅")
-        button1 = tk.Button(width_setting_panel, text = "960", width = 15)
-        button2 = tk.Button(width_setting_panel, text = "480", width = 15)
+        button1 = tk.Button(width_setting_panel, text = "960", width = 15, command=clicked_960)
+        button2 = tk.Button(width_setting_panel, text = "480", width = 15, command=clicked_480)
         label1.pack()
         button1.pack()
         button2.pack()

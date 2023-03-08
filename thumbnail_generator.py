@@ -32,7 +32,7 @@ class ProgressBar:
         """
         remaining_processes = self.processes - self.current_progress
         now_progress = int((self.current_progress / self.processes) * 30)
-        progress = "■"*(now_progress) + " "*(30 - now_progress)
+        progress = "#"*(now_progress) + " "*(30 - now_progress)
         print('\r[{}] {:02}/{} 残り時間: {:04.1f}s'.format(progress, self.current_progress,
               self.processes, self.get_time()*remaining_processes), end='')
 

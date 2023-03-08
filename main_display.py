@@ -29,11 +29,12 @@ class Application(tk.Frame):
     def create_menu(self):
         ''' メニューの作成'''
         menu_bar = tk.Menu(self)
- 
+
         # ファイルメニュー
         file_menu = tk.Menu(menu_bar, tearoff = tk.OFF)
         menu_bar.add_cascade(label="ファイル", menu = file_menu)
         file_menu.add_command(label = "開く(O)", command = self.menu_open_click)
+        file_menu.add_command(label= "環境設定", command= self.create_modal_dialog)
         file_menu.add_separator() # セパレータ
         file_menu.add_command(label = "終了", command = self.master.destroy)
 
@@ -49,9 +50,6 @@ class Application(tk.Frame):
         # 親のメニューに設定
         self.master.config(menu = menu_bar)
 
-    def menu_dummy(self, event=None):
-        pass
-
     def menu_open_click(self, event=None):
         ''' ファイルを開く'''
 
@@ -64,6 +62,34 @@ class Application(tk.Frame):
     def help_menu_open_click(self, event=None):
         ''' ヘルプを開く '''
         pass
+
+    def create_modal_dialog(self):
+        '''モーダルダイアログボックスの作成'''
+        dlg_modal = tk.Toplevel(master=self.master)
+        dlg_modal.title("環境設定") # ウィンドウタイトル
+        dlg_modal.geometry("400x200")   # ウィンドウサイズ(幅x高さ)
+        
+        # モーダルにする設定
+        dlg_modal.grab_set()        # モーダルにする
+        dlg_modal.focus_set()       # フォーカスを新しいウィンドウをへ移す
+        dlg_modal.transient(self.master)   # タスクバーに表示しない
+        
+        config_frame = tk.Frame(dlg_modal, borderwidth = 2, relief = tk.SUNKEN, width= 250)
+        
+        use_gpu = tk.Checkbutton(config_frame, text="Nvidiaグラフィックボードを使用してサムネイルを生成")
+        use_gpu.pack()
+        
+        ffmpeg_path = tk.Entry(config_frame)
+        ffmpeg_path.pack()
+        
+        label1 = tk.Label(config_frame, text="テストです。")
+        label1.pack()
+        
+        config_frame.pack()
+
+        # ダイアログが閉じられるまで待つ
+        app.wait_window(dlg_modal)  
+        print("ダイアログが閉じられた")
 
     def create_tool_bar(self):
         ''' ツールバー'''
@@ -90,9 +116,10 @@ class Application(tk.Frame):
         pb = ttk.Progressbar(frame_status_bar, orient="horizontal", variable=pbval, maximum=10, length=150 ,mode="determinate")
         pb.pack(side='left')
 
-        """self.label1 = tk.Label(frame_status_bar, text = "ステータスラベル１")
+        """
+        self.label1 = tk.Label(frame_status_bar, text = "ステータスラベル１")
         self.label2 = tk.Label(frame_status_bar, text = "ステータスラベル２")
-
+        
         self.label1.pack(side = tk.LEFT)
         self.label2.pack(side = tk.RIGHT)"""
 

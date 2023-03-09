@@ -1,11 +1,16 @@
 import tkinter as tk
 from tkinter import filedialog
 from tkinter import ttk
-import os
+import os, sys
+import thumbnail_generator as tg
+import configparser
 
 
 class Application(tk.Frame):
     def __init__(self, master = None):
+        self.application_path = tg.initialize()
+        self.save_directory = self.read_ini('thumbnail_savepath')
+        self.ffmpeg_path = self.read_ini('ffmpeg_path')
         super().__init__(master)
 
         # ウィンドウタイトル
@@ -16,7 +21,7 @@ class Application(tk.Frame):
         # メニューの作成
         self.create_menu()
         # ツールバーの作成
-        self.create_tool_bar()
+        #self.create_tool_bar()
         # ステータスバーの作成
         self.create_status_bar()
         # サイドパネル
@@ -52,44 +57,104 @@ class Application(tk.Frame):
 
     def menu_open_click(self, event=None):
         ''' ファイルを開く'''
-
+        fTpy = [('ビデオファイル', '*.mp4 *.avi *.wmv *.mkv')]
         # ファイルを開くダイアログ
-        filename = tk.filedialog.askopenfilename(
-            initialdir = os.getcwd() # カレントディレクトリ
-            )
-        print(filename)
+        filenames = filedialog.askopenfilenames(filetypes=fTpy, initialdir = os.getcwd())
+        #filename = tk.filedialog.askopenfilenames(filetypes=fTpy, initialdir = os.getcwd())
+        print(filenames)
         
     def help_menu_open_click(self, event=None):
         ''' ヘルプを開く '''
         pass
 
+    def read_ini(self, ini_key: str):
+        ini_file = os.path.join(self.application_path, 'config.ini')
+        ini = configparser.ConfigParser()
+        ini.read(ini_file, 'UTF-8')
+        return ini['DEFAULT'][ini_key]
+
     def create_modal_dialog(self):
+        def ask_save_directory():
+            self.save_directory = filedialog.askdirectory(initialdir = self.save_directory)
+            if self.save_directory:
+                var_save_dir.set(self.save_directory)
+        def ask_ffmpeg_path():
+            self.ffmpeg_path = filedialog.askdirectory(initialdir = self.ffmpeg_path)
+            if self.ffmpeg_path:
+                var_ffmpeg_path.set(self.ffmpeg_path)
+                
+        def save_ini():
+            config_ini_path = os.path.join(self.application_path, 'config.ini')
+            ini = configparser.ConfigParser(comment_prefixes='#', allow_no_value=True)
+            ini.read(config_ini_path, 'UTF-8')
+            defa = ini['DEFAULT']
+            defa['ffmpeg_path'] = self.ffmpeg_path
+            defa['thumbnail_savepath'] = self.save_directory
+            with open(config_ini_path, 'w') as configfile:
+                # 指定したconfigファイルを書き込み
+                ini.write(configfile)
+            
+
         '''モーダルダイアログボックスの作成'''
         dlg_modal = tk.Toplevel(master=self.master)
         dlg_modal.title("環境設定") # ウィンドウタイトル
-        dlg_modal.geometry("400x200")   # ウィンドウサイズ(幅x高さ)
+        dlg_modal.geometry("400x600")   # ウィンドウサイズ(幅x高さ)
         
         # モーダルにする設定
         dlg_modal.grab_set()        # モーダルにする
         dlg_modal.focus_set()       # フォーカスを新しいウィンドウをへ移す
         dlg_modal.transient(self.master)   # タスクバーに表示しない
         
-        config_frame = tk.Frame(dlg_modal, borderwidth = 2, relief = tk.SUNKEN, width= 250)
+        config_frame = tk.Frame(dlg_modal, borderwidth = 5, relief = tk.GROOVE, width= 250)
         
-        use_gpu = tk.Checkbutton(config_frame, text="Nvidiaグラフィックボードを使用してサムネイルを生成")
-        use_gpu.pack()
+        checkbutton_use_gpu = tk.Checkbutton(config_frame, text="Nvidiaグラフィックボードを使用してサムネイルを生成")
+        checkbutton_use_gpu.pack()
         
-        ffmpeg_path = tk.Entry(config_frame)
-        ffmpeg_path.pack()
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        frame_1 = tk.LabelFrame(config_frame, text="FFMPEGのパス", borderwidth=5, relief=tk.GROOVE)
         
-        label1 = tk.Label(config_frame, text="テストです。")
-        label1.pack()
+        var_ffmpeg_path = tk.StringVar()
+        var_ffmpeg_path.set(self.read_ini('ffmpeg_path'))
+        entry_ffmpeg_path = tk.Entry(frame_1, textvariable=var_ffmpeg_path, width=50)
+        entry_ffmpeg_path.pack(padx=5, side='left')
         
-        config_frame.pack()
+        button_ask_ffmpeg_path = tk.Button(frame_1, text="参照", command=ask_ffmpeg_path)
+        button_ask_ffmpeg_path.pack(side='left')
+        
+        frame_1.pack(pady=10)
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        frame_2 = tk.LabelFrame(config_frame, text="デフォルトのサムネイル保存先", borderwidth=5, relief=tk.GROOVE)
+        
+        var_save_dir = tk.StringVar()
+        var_save_dir.set(self.read_ini('thumbnail_savepath'))
+        entry_save_path = tk.Entry(frame_2, textvariable=var_save_dir, width=50)
+        entry_save_path.pack(padx=5, side='left')
+        
+        button_ask_directory = tk.Button(frame_2, text="参照", command=ask_save_directory)
+        button_ask_directory.pack(side='left')
+        
+        frame_2.pack(pady=10)
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        save_close = tk.Frame(dlg_modal, borderwidth = 2, relief = tk.SUNKEN, width= 250)
+        
+        save_button = tk.Button(save_close, text="保存", command=save_ini)
+        save_button.pack(side='left')
+        
+        close_button = tk.Button(save_close, text='閉じる', command= dlg_modal.destroy)
+        close_button.pack(side='right')
+        
+        save_close.pack(side='bottom')
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        
+        config_frame.pack(padx=10)
 
         # ダイアログが閉じられるまで待つ
         app.wait_window(dlg_modal)  
-        print("ダイアログが閉じられた")
+        print("ダイアログが閉じられた")    
 
     def create_tool_bar(self):
         def clicked_43():

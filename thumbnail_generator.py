@@ -124,6 +124,7 @@ def initialize(section: str = 'DEFAULT') -> None:
 
     # サムネイル画像の保存先ディレクトリを作成する
     os.makedirs(thumbnail_savepath, exist_ok=True)
+    return application_path
 
 
 def read_ini(application_path: str, section: str) -> bool:
@@ -522,7 +523,11 @@ def create_thumbnail(video_path: str) -> None:
     except Exception:
         print(traceback.format_exc())
         print(f'{video_path} is not video file!')
+        
 
+def list_to_path(videolist: list) -> None:
+    for video in videolist:
+        create_thumbnail(video)
 
 if __name__ == '__main__':
     section_check()

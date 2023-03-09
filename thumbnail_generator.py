@@ -124,6 +124,7 @@ def initialize(section: str = 'DEFAULT') -> None:
 
     # サムネイル画像の保存先ディレクトリを作成する
     os.makedirs(thumbnail_savepath, exist_ok=True)
+    return application_path
 
 
 def read_ini(application_path: str, section: str) -> bool:
@@ -314,7 +315,7 @@ def get_streams(video_path: str) -> tuple[dict, dict]:
     """動画ファイルを与えるとffprobeで各ストリームと取り出す
 
     Args:
-        filename (str): 動画ファイル
+        video_path (str): 動画ファイル
 
     Returns:
         tuple: 動画ストリームと音声ストリームのタプル
@@ -486,11 +487,11 @@ def cut_video(durationlist: list[float], video_path: str) -> list[Image.Image]:
     progress_bar = ProgressBar(len(durationlist))
     for i, now in enumerate(durationlist):
         progress_bar.update()
-        filename = os.path.basename(video_path)
-        filename_without, etc = os.path.splitext(filename)
-        save = filename_without + '_TG_' + str(i) + '.jpg'  # 一時的に保存するための変数。
+        filename_with_extencion = os.path.basename(video_path)
+        filename, extencion = os.path.splitext(filename_with_extencion)
+        save = filename + '_TG_' + str(i) + '.jpg'  # 一時的に保存するための変数。
         save = os.path.join(thumbnail_savepath, save)
-        if etc == '.wmv':
+        if extencion == '.wmv':
             subprocess.call([ffmpeg_exe, '-loglevel', 'quiet', '-ss', str(now),
                         '-y', '-i', video_path, '-vframes', '1', '-q:v', '1', '-s', size, '-f', 'image2', save])
         else:
@@ -510,19 +511,23 @@ def create_thumbnail(video_path: str) -> None:
     """
     global gridsize
     try:
-        filename = os.path.basename(video_path)
-        filename_without, etc = os.path.splitext(filename)
+        filename_with_extencion = os.path.basename(video_path)
+        filename, extencion = os.path.splitext(filename_with_extencion)
         video_format = get_format(video_path)
         duration = float(video_format['duration'])
         frame = (duration / gridsize)-1
         videoinfo = get_video_info(video_path)
         durationlist = [frame * (i+1) for i in range(gridsize)]
         images = get_image_list(durationlist, video_path)
-        grid_picture(images, filename_without, videoinfo)
+        grid_picture(images, filename, videoinfo)
     except Exception:
         print(traceback.format_exc())
         print(f'{video_path} is not video file!')
+        
 
+def list_to_path(videolist: list) -> None:
+    for video in videolist:
+        create_thumbnail(video)
 
 if __name__ == '__main__':
     section_check()

@@ -4,6 +4,7 @@ from tkinter import ttk
 import os, sys
 import thumbnail_generator as tg
 import configparser
+import threading
 
 
 class Application(tk.Frame):
@@ -11,6 +12,10 @@ class Application(tk.Frame):
         self.application_path = tg.initialize()
         self.save_directory = self.read_ini('thumbnail_savepath')
         self.ffmpeg_path = self.read_ini('ffmpeg_path')
+        self.__x_grid = self.read_ini('xgrid')
+        self.__y_grid = self.read_ini('ygrid')
+        self.__width_size = self.read_ini('width')
+        self.videolist = []
         super().__init__(master)
 
         # ウィンドウタイトル
@@ -61,6 +66,7 @@ class Application(tk.Frame):
         # ファイルを開くダイアログ
         filenames = filedialog.askopenfilenames(filetypes=fTpy, initialdir = os.getcwd())
         #filename = tk.filedialog.askopenfilenames(filetypes=fTpy, initialdir = os.getcwd())
+        self.videolist = list(filenames)
         print(filenames)
         
     def help_menu_open_click(self, event=None):
@@ -202,11 +208,34 @@ class Application(tk.Frame):
             button2['state'] = 'normal'
             button1.configure(bg='#03dfa6')
             button2.configure(bg='#f2f2f2')
+            self.__width_size = "960"
         def clicked_480():
             button1['state'] = 'normal'
             button2['state'] = 'disabled'
             button1.configure(bg='#f2f2f2')
             button2.configure(bg='#03dfa6')
+            self.__width_size = "480"
+        def execute_generate():
+            x = int(self.__width_size)
+            y = (x//16)*9
+            config_ini_path = os.path.join(self.application_path, 'config.ini')
+            ini = configparser.ConfigParser(comment_prefixes='#', allow_no_value=True)
+            ini.read(config_ini_path, 'UTF-8')
+            defa = ini['DEFAULT']
+            defa['xgrid'] = str(self.__x_grid)
+            defa['ygrid'] = str(self.__y_grid)
+            defa['width'] = str(x)
+            defa['height'] = str(y)
+            if not self.videolist:
+                self.bell()
+                return
+            else:
+                with open(config_ini_path, 'w') as configfile:
+                    # 指定したconfigファイルを書き込み
+                    ini.write(configfile)
+                thread1 = threading.Thread(target=tg.list_to_path, args=(self.videolist,))
+                thread1.start()
+                self.videolist.clear()
         side_panel = tk.Frame(self.master, borderwidth = 2, relief = tk.SUNKEN)
         
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -218,6 +247,10 @@ class Application(tk.Frame):
         label1.pack()
         button1.pack()
         button2.pack()
+        if self.__width_size == "960":
+            clicked_960()
+        else:
+            clicked_480()
         
         width_setting_panel.pack()
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -226,19 +259,20 @@ class Application(tk.Frame):
         grid_setting_panel = tk.Frame(side_panel, borderwidth = 2)
         
         x_intVar = tk.IntVar(value=0)
-        x_intVar.set(4)
+        x_intVar.set(self.__x_grid)
         grid_setting_panel1 = tk.Frame(grid_setting_panel, borderwidth = 2, relief = tk.SUNKEN)
         label2 = tk.Label(grid_setting_panel1, text="横の数")
-        x_spin = tk.Spinbox(grid_setting_panel1, from_=1, to=5, increment=1, width=7, textvariable=x_intVar)
+        x_spin = tk.Spinbox(grid_setting_panel1, from_=1, to=5, increment=1, width=7, textvariable=x_intVar, state='readonly')
+        self.__x_grid = x_spin.get()
         label2.pack()
         x_spin.pack()
         grid_setting_panel1.pack(side='left')
-        
         y_intVar = tk.IntVar(value=0)
-        y_intVar.set(4)
+        y_intVar.set(self.__y_grid)
         grid_setting_panel2 = tk.Frame(grid_setting_panel, borderwidth = 2, relief = tk.SUNKEN)
         label3 = tk.Label(grid_setting_panel2, text="縦の数")
-        y_spin = tk.Spinbox(grid_setting_panel2, from_=1, to=10, increment=1, width=7, textvariable=y_intVar)
+        y_spin = tk.Spinbox(grid_setting_panel2, from_=1, to=10, increment=1, width=7, textvariable=y_intVar, state='readonly')
+        self.__y_grid = y_spin.get()
         label3.pack()
         y_spin.pack()
         grid_setting_panel2.pack(side='right')
@@ -249,7 +283,7 @@ class Application(tk.Frame):
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         execute_panel = tk.Frame(side_panel, borderwidth = 2, relief = tk.SUNKEN)
         
-        execute_button = tk.Button(execute_panel, text = "実行", width=15)
+        execute_button = tk.Button(execute_panel, text = "実行", width=15, command=execute_generate)
         execute_button.pack()
         
         execute_panel.pack(side="bottom")
